@@ -1,84 +1,72 @@
-name: Build OrangeFox
+name: Build OrangeFox duchamp
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ test ]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-
+    runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Maximize Build Space & Setup Swap
+      uses: easimon/maximize-build-space@master
+      with:
+        root-reserve-mb: 2048
+        swap-size-mb: 12288 
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-docker-images: 'true'
 
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Install build environment
-        run: |
-          sudo apt update
-          sudo apt -y upgrade
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev libclang-dev python3 libncurses5
 
-          git clone https://gitlab.com/OrangeFox/misc/scripts
-          cd scripts
+    - name: Install Repo Tool
+      run: |
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        sudo ln -sf ~/bin/repo /usr/bin/repo
 
-          sudo bash setup/android_build_env.sh
+    - name: Sync Source Code
+      run: |
+        mkdir -p OrangeFox/fox_12.1
+        cd OrangeFox/fox_12.1
+        git config --global user.name "quocanhne123"
+        git config --global user.email "quocanhne123@github.com"
+        
+        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
+        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
-      - name: Sync OrangeFox 12.1
-        run: |
-          mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
-          cd ${GITHUB_WORKSPACE}/OrangeFox
+    - name: Setup Device Tree
+      run: |
+        cd OrangeFox/fox_12.1
+        rm -rf device/xiaomi/duchamp
+        git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-          git clone https://gitlab.com/OrangeFox/sync.git
+    - name: Run Build
+      run: |
+        cd OrangeFox/fox_12.1
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export FOX_BUILD_DEVICE=duchamp
+        export LC_ALL=C
+        
+        lunch twrp_duchamp-eng || lunch omni_duchamp-eng
+        mka recoveryimage -j$(nproc --all)
 
-          cd sync
-
-          chmod +x orangefox_sync.sh
-
-          ./orangefox_sync.sh \
-            --branch 12.1 \
-            --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-
-      - name: Clone Device Tree
-        run: |
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-
-          git clone \
-          -b test \
-          https://github.com/quocanhne123/android_device_xiaomi_duchamp.git \
-          device/xiaomi/duchamp
-
-      - name: Build
-        run: |
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-
-          export ALLOW_MISSING_DEPENDENCIES=true
-          export FOX_BUILD_DEVICE=duchamp
-          export LC_ALL="C"
-
-          set +e
-          source build/envsetup.sh
-
-          set -x
-          
-          lunch twrp_duchamp-eng || lunch omni_duchamp-eng
-
-          set -e
-
-          mka vendorbootimage
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: OrangeFox-duchamp
-          path: |
-            OrangeFox/fox_12.1/out/target/product/duchamp/*.img
-            OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: OrangeFox_Duchamp_Recovery
+        path: |
+          OrangeFox/fox_12.1/out/target/product/duchamp/*.img
+          OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
