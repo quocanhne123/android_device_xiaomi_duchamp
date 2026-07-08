@@ -5,9 +5,6 @@ on:
   push:
     branches: [ test ]
 
-env:
-  GIT_TERMINAL_PROMPT: 0
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,31 +13,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    # BƯỚC NÀY LÀ QUAN TRỌNG NHẤT: Xóa sạch dấu vết của GitHub Actions khỏi Git
-    - name: Purge Git Config
-      run: |
-        git config --global --unset-all http.https://github.com/.extraheader || true
-        git config --global --unset-all http.https://gitlab.com/.extraheader || true
-        git config --global --unset-all credential.helper || true
-        git config --global credential.helper ""
-        git config --global user.email "build@bot.com"
-        git config --global user.name "BuildBot"
-
-    - name: Install Repo Tool
-      run: |
-        mkdir -p ~/bin
-        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
-        chmod a+x ~/bin/repo
-        sudo ln -sf ~/bin/repo /usr/bin/repo
-
-    # Sync trong một thư mục hoàn toàn mới, không liên quan đến git của checkout
-    - name: Sync Source Code
-      run: |
-        mkdir -p OrangeFox/fox_12.1
-        cd OrangeFox/fox_12.1
-        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
-        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
-
+    # ĐƯA LÊN ĐẦU: Tối ưu dung lượng đĩa trước khi tải code nặng
     - name: Maximize Build Space & Setup Swap
       uses: easimon/maximize-build-space@master
       with:
@@ -51,6 +24,35 @@ jobs:
         remove-haskell: 'true'
         remove-codeql: 'true'
         remove-docker-images: 'true'
+
+    - name: Install Repo Tool
+      run: |
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        sudo ln -sf ~/bin/repo /usr/bin/repo
+
+    # SỬA LỖI: Cấu hình Git chính xác để không bị hỏi tài khoản GitLab
+    - name: Purge Git and Sync
+      run: |
+        mkdir -p OrangeFox/fox_12.1
+        cd OrangeFox/fox_12.1
+        
+        # Sửa lỗi authentication: Xóa header mặc định của GitHub áp dụng cho mọi domain
+        git config --global --unset-all http.https://github.com/.extraheader || true
+        
+        # Bật credential helper mặc định và ép cấu hình clone ẩn danh cho GitLab công khai
+        git config --global credential.helper cache
+        git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        
+        # Cấu hình định danh Git
+        git config --global user.name "BuildBot"
+        git config --global user.email "build@bot.com"
+        
+        # Chạy Repo Init và Sync
+        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
+        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Install Dependencies
       run: |
