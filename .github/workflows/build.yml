@@ -42,7 +42,7 @@ jobs:
         git config --global user.name "quocanhne123"
         git config --global user.email "quocanhne123@github.com"
         
-        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
+        repo init --depth=1 -u https://github.com/OrangeFoxRecovery/Manifest.git -b fox_12.1 --git-lfs
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Setup Device Tree
