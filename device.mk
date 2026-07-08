@@ -17,7 +17,7 @@ PRODUCT_SOONG_NAMESPACES += $(DEVICE_PATH)
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
 # API
-PRODUCT_SHIPPING_API_LEVEL := 31
+PRODUCT_SHIPPING_API_LEVEL := 34
 PRODUCT_TARGET_VNDK_VERSION := 34
 
 # A/B
@@ -77,7 +77,7 @@ PRODUCT_PACKAGES += \
     android.hardware.boot@1.2-impl.recovery \
     android.hardware.boot@1.2-service    
 
-PRODUCT_PACKAGES := \
+PRODUCT_PACKAGES += \
     bootctrl.mt6897 \
     libgptutils \
     libz \
