@@ -13,12 +13,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    # ĐƯA LÊN ĐẦU: Tối ưu dung lượng đĩa trước khi tải code nặng
     - name: Maximize Build Space & Setup Swap
       uses: easimon/maximize-build-space@master
       with:
         root-reserve-mb: 2048
-        swap-size-mb: 12288
+        swap-size-mb: 16384
         remove-dotnet: 'true'
         remove-android: 'true'
         remove-haskell: 'true'
@@ -32,27 +31,26 @@ jobs:
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
-    # SỬA LỖI: Cấu hình Git chính xác để không bị hỏi tài khoản GitLab
-    - name: Purge Git and Sync
+    - name: Sync Source Code (Manual Method)
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
         
-        # Sửa lỗi authentication: Xóa header mặc định của GitHub áp dụng cho mọi domain
-        git config --global --unset-all http.https://github.com/.extraheader || true
-        
-        # Bật credential helper mặc định và ép cấu hình clone ẩn danh cho GitLab công khai
-        git config --global credential.helper cache
-        git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
-        git config --global url."https://github.com/".insteadOf "git@github.com:"
-        
-        # Cấu hình định danh Git
+        # Cấu hình danh tính và dọn sạch header thừa của GitHub
         git config --global user.name "BuildBot"
         git config --global user.email "build@bot.com"
+        git config --global --unset-all http.https://github.com/.extraheader || true
+        git config --global credential.helper ""
         
-        # Chạy Repo Init và Sync
-        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
-        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+        # Clone manifest thủ công qua nhánh master/main hiện hành của OrangeFox
+        mkdir -p .repo
+        git clone https://github.com/OrangeFoxRecovery/Manifest.git -b master .repo/manifests
+        
+        # Tạo file cấu hình repo trỏ tới default.xml
+        echo '<?xml version="1.0" encoding="UTF-8"?><manifest><include name="default.xml"/></manifest>' > .repo/manifest.xml
+        
+        # Đồng bộ mã nguồn ở mức tải ổn định
+        repo sync -c -j4 --force-sync --no-clone-bundle --no-tags
 
     - name: Install Dependencies
       run: |
@@ -72,7 +70,8 @@ jobs:
         export LC_ALL=C
         
         lunch twrp_duchamp-eng || lunch omni_duchamp-eng
-        mka recoveryimage -j$(nproc --all)
+        # Giới hạn -j4 để tránh tràn RAM ở khâu compile cuối
+        mka recoveryimage -j4
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
