@@ -1,69 +1,21 @@
-name: Build OrangeFox
+- name: Build
+  shell: bash
+  run: |
+    set -ex
 
-on:
-  workflow_dispatch:
+    cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
 
-jobs:
-  build:
-    runs-on: ubuntu-22.04
+    export ALLOW_MISSING_DEPENDENCIES=true
+    export FOX_BUILD_DEVICE=duchamp
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    echo "===== Device Tree ====="
+    ls device/xiaomi/duchamp
 
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
+    echo "===== vendorsetup.sh ====="
+    cat device/xiaomi/duchamp/vendorsetup.sh
 
-      - name: Install build environment
-        run: |
-          sudo apt update
-          sudo apt -y upgrade
+    source build/envsetup.sh
 
-          git clone https://gitlab.com/OrangeFox/misc/scripts
-          cd scripts
+    lunch twrp_duchamp-eng
 
-          sudo bash setup/android_build_env.sh
-
-      - name: Sync OrangeFox 12.1
-        run: |
-          mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
-          cd ${GITHUB_WORKSPACE}/OrangeFox
-
-          git clone https://gitlab.com/OrangeFox/sync.git
-
-          cd sync
-
-          chmod +x orangefox_sync.sh
-
-          ./orangefox_sync.sh \
-            --branch 12.1 \
-            --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-
-      - name: Clone Device Tree
-        run: |
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-
-          git clone \
-          -b test \
-          https://github.com/quocanhne123/android_device_xiaomi_duchamp.git \
-          device/xiaomi/duchamp
-
-      - name: Build
-        run: |
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-
-          export ALLOW_MISSING_DEPENDENCIES=true
-          export FOX_BUILD_DEVICE=duchamp
-
-          source build/envsetup.sh
-
-          lunch twrp_duchamp-eng
-
-          mka vendorbootimage
-
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: OrangeFox
-          path: |
-            OrangeFox/fox_12.1/out/target/product/duchamp/*
+    mka vendorbootimage -j$(nproc)
