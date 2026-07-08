@@ -8,14 +8,14 @@
     export ALLOW_MISSING_DEPENDENCIES=true
     export FOX_BUILD_DEVICE=duchamp
 
+    source build/envsetup.sh
+
     echo "===== Device Tree ====="
     ls device/xiaomi/duchamp
 
     echo "===== vendorsetup.sh ====="
     cat device/xiaomi/duchamp/vendorsetup.sh
 
-    source build/envsetup.sh
-
     lunch twrp_duchamp-eng
 
-    mka vendorbootimage -j$(nproc)
+    mka vendorbootimage2
