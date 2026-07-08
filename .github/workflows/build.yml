@@ -31,25 +31,23 @@ jobs:
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
-    - name: Sync Source Code (Manual Method)
+    - name: Sync Source Code (Bypass Auth)
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
         
-        # Cấu hình danh tính và dọn sạch header thừa của GitHub
-        git config --global user.name "BuildBot"
-        git config --global user.email "build@bot.com"
-        git config --global --unset-all http.https://github.com/.extraheader || true
+        # ĐẶC BIỆT: Tắt mọi trình quản lý thông tin xác thực Git
         git config --global credential.helper ""
         
-        # Clone manifest thủ công qua nhánh master/main hiện hành của OrangeFox
+        # Tạo cấu hình manifest thủ công để bypass 'git clone' trong repo init
         mkdir -p .repo
-        git clone https://github.com/OrangeFoxRecovery/Manifest.git -b master .repo/manifests
+        # Sử dụng lệnh clone trực tiếp thay vì thông qua repo init để tránh lỗi terminal
+        git clone --depth 1 https://github.com/OrangeFoxRecovery/Manifest.git -b master .repo/manifests
         
-        # Tạo file cấu hình repo trỏ tới default.xml
+        # Tạo file điều hướng cho repo sync
         echo '<?xml version="1.0" encoding="UTF-8"?><manifest><include name="default.xml"/></manifest>' > .repo/manifest.xml
         
-        # Đồng bộ mã nguồn ở mức tải ổn định
+        # Đồng bộ nguồn
         repo sync -c -j4 --force-sync --no-clone-bundle --no-tags
 
     - name: Install Dependencies
@@ -70,7 +68,6 @@ jobs:
         export LC_ALL=C
         
         lunch twrp_duchamp-eng || lunch omni_duchamp-eng
-        # Giới hạn -j4 để tránh tràn RAM ở khâu compile cuối
         mka recoveryimage -j4
 
     - name: Upload Artifacts
