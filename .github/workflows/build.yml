@@ -28,21 +28,18 @@ jobs:
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
         
-        git config --global user.name "quocanhne123"
-        git config --global user.email "quocanhne123@github.com"
-        
-        # MẸO HACK: Tự tạo cấu hình manifest thủ công không qua lệnh 'repo init' để tránh bị chặn Auth
-        mkdir -p .repo/manifests
-        curl -sL https://gitlab.com/OrangeFox/Manifest/-/raw/fox_12.1/default.xml > .repo/manifests/default.xml
-        echo '<?xml version="1.0" encoding="UTF-8"?><manifest><include name="default.xml"/></manifest>' > .repo/manifest.xml
-        
-        # Ép Git bỏ qua khâu check Token bảo mật của GitHub
+        # Xóa các cấu hình cũ có thể gây xung đột
         git config --global --unset-all http.https://github.com/.extraheader || true
         
-        # Tiến hành sync trực tiếp luôn
-        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+        # Ép Repo sử dụng giao thức công khai hoàn toàn
+        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
+        
+        # Bước quan trọng: Ép Git sử dụng HTTPS thay vì SSH cho mọi liên kết con
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        
+        # Chạy sync
+        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags    # 4. ĐỘ RAM ẢO VÀ DỌN Ổ CỨNG (Gánh tạ đoạn Rust 82%)
 
-    # 4. ĐỘ RAM ẢO VÀ DỌN Ổ CỨNG (Gánh tạ đoạn Rust 82%)
     - name: Maximize Build Space & Setup Swap
       uses: easimon/maximize-build-space@master
       with:
