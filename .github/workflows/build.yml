@@ -10,12 +10,17 @@
 
     source build/envsetup.sh
 
-    echo "===== Device Tree ====="
+    echo "===== PRODUCTS ====="
     ls device/xiaomi/duchamp
 
-    echo "===== vendorsetup.sh ====="
+    echo "===== vendorsetup ====="
     cat device/xiaomi/duchamp/vendorsetup.sh
 
+    echo "===== AndroidProducts ====="
+    cat device/xiaomi/duchamp/AndroidProducts.mk
+
+    echo "===== Lunch ====="
     lunch twrp_duchamp-eng
 
-    mka vendorbootimage2
+    echo "===== Build ====="
+    mka vendorbootimage
