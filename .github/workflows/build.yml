@@ -22,23 +22,25 @@ jobs:
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
-    # 3. ĐỒNG BỘ MÃ NGUỒN (Đã hack bypass lỗi Auth 100%)
+
+	# 3. KHỞI TẠO VÀ ĐỒNG BỘ MÃ NGUỒN (Đã fix lỗi Auth)
     - name: Sync Source Code
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
         
-        # Xóa các cấu hình cũ có thể gây xung đột
-        git config --global --unset-all http.https://github.com/.extraheader || true
+        # BẮT BUỘC: Cấu hình Git bỏ qua kiểm tra Token tự động của GitHub
+        git config --global http.postBuffer 524288000
+        git config --global credential.helper store
         
-        # Ép Repo sử dụng giao thức công khai hoàn toàn
+        # Ép Repo sử dụng link công khai không cần Auth
         repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
         
-        # Bước quan trọng: Ép Git sử dụng HTTPS thay vì SSH cho mọi liên kết con
-        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        # Quan trọng: Ép Git dùng HTTPS thay vì SSH cho toàn bộ request
+        git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
         
-        # Chạy sync
-        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags    # 4. ĐỘ RAM ẢO VÀ DỌN Ổ CỨNG (Gánh tạ đoạn Rust 82%)
+        # Chạy sync với flag --no-tags để giảm dung lượng và tránh lỗi check xác thực
+        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Maximize Build Space & Setup Swap
       uses: easimon/maximize-build-space@master
