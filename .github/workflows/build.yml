@@ -5,6 +5,9 @@ on:
   push:
     branches: [ test ]
 
+env:
+  GIT_TERMINAL_PROMPT: 0
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,6 +16,16 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    # BƯỚC NÀY LÀ QUAN TRỌNG NHẤT: Xóa sạch dấu vết của GitHub Actions khỏi Git
+    - name: Purge Git Config
+      run: |
+        git config --global --unset-all http.https://github.com/.extraheader || true
+        git config --global --unset-all http.https://gitlab.com/.extraheader || true
+        git config --global --unset-all credential.helper || true
+        git config --global credential.helper ""
+        git config --global user.email "build@bot.com"
+        git config --global user.name "BuildBot"
+
     - name: Install Repo Tool
       run: |
         mkdir -p ~/bin
@@ -20,26 +33,11 @@ jobs:
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
-    # BƯỚC QUAN TRỌNG: XÓA SẠCH CONFIG CŨ
-    - name: Purge Git and Sync
+    # Sync trong một thư mục hoàn toàn mới, không liên quan đến git của checkout
+    - name: Sync Source Code
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
-        
-        # 1. Xóa sạch credential cũ của GitHub Actions
-        git config --global --unset-all http.https://github.com/.extraheader || true
-        git config --global --unset-all http.https://gitlab.com/.extraheader || true
-        git config --global credential.helper ""
-        
-        # 2. Ép HTTPS và bỏ qua xác thực SSH
-        git config --global url."https://github.com/".insteadOf "git@github.com:"
-        git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
-        
-        # 3. Cấu hình định danh
-        git config --global user.name "BuildBot"
-        git config --global user.email "build@bot.com"
-        
-        # 4. Chạy Repo Init và Sync
         repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
