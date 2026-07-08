@@ -10,19 +10,30 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    # 1. CHECKOUT REPO
     - name: Checkout
       uses: actions/checkout@v4
 
+    # 2. CÀI ĐẶT CÔNG CỤ REPO (Đưa lên đây để có lệnh 'repo' chạy bước dưới)
+    - name: Install Repo Tool
+      run: |
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        sudo ln -sf ~/bin/repo /usr/bin/repo
+
+    # 3. KHỞI TẠO VÀ ĐỒNG BỘ MÃ NGUỒN (Quyền chuẩn, có sẵn lệnh repo)
     - name: Sync Source Code
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
         git config --global user.name "quocanhne123"
         git config --global user.email "quocanhne123@github.com"
-
+        
         repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
+    # 4. ĐỘ RAM ẢO VÀ DỌN Ổ CỨNG (Chạy sau khi sync xong để không phá quyền thư mục)
     - name: Maximize Build Space & Setup Swap
       uses: easimon/maximize-build-space@master
       with:
@@ -34,17 +45,20 @@ jobs:
         remove-codeql: 'true'
         remove-docker-images: 'true'
 
+    # 5. CÀI ĐẶT THƯ VIỆN ĐẦY ĐỦ (Ubuntu 24.04 mới)
     - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev libclang-dev python3 libncurses6 libncurses-dev
 
+    # 6. ĐỒNG BỘ DEVICE TREE CỦA BẠN
     - name: Setup Device Tree
       run: |
         cd OrangeFox/fox_12.1
         rm -rf device/xiaomi/duchamp
         git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
+    # 7. TIẾN HÀNH BUILD RECOVERY
     - name: Run Build
       run: |
         cd OrangeFox/fox_12.1
@@ -56,6 +70,7 @@ jobs:
         lunch twrp_duchamp-eng || lunch omni_duchamp-eng
         mka recoveryimage -j$(nproc --all)
 
+    # 8. XUẤT FILE THÀNH PHẨM
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
