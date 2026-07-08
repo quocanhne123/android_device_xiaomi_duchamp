@@ -1,74 +1,90 @@
-name: Build OrangeFox duchamp
+name: Build OrangeFox
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ test ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-22.04
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    # Bước này là cái "phao cứu sinh" để không bị crash 82%
-    - name: Maximize Build Space & Setup Swap
-      uses: easimon/maximize-build-space@master
-      with:
-        root-reserve-mb: 2048
-        swap-size-mb: 16384
-        remove-dotnet: 'true'
-        remove-android: 'true'
-        remove-haskell: 'true'
-        remove-codeql: 'true'
-        remove-docker-images: 'true'
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # Bật các tùy chọn này để giải phóng tối đa dung lượng (rất cần cho việc build Android)
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
-    - name: Install Repo Tool
-      run: |
-        mkdir -p ~/bin
-        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
-        chmod a+x ~/bin/repo
-        sudo ln -sf ~/bin/repo /usr/bin/repo
+      - name: Install build environment
+        run: |
+          sudo apt update
+          sudo apt -y upgrade
 
-    - name: Sync Source Code
-      run: |
-        mkdir -p OrangeFox/fox_12.1
-        cd OrangeFox/fox_12.1
-        git config --global user.name "quocanhne123"
-        git config --global user.email "quocanhne123@github.com"
-        
-        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
-        repo sync -c -j4 --force-sync --no-clone-bundle --no-tags
+          git clone https://gitlab.com/OrangeFox/misc/scripts
+          cd scripts
 
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev libclang-dev python3 libncurses6 libncurses-dev
+          sudo bash setup/android_build_env.sh
 
-    - name: Setup Device Tree
-      run: |
-        cd OrangeFox/fox_12.1
-        rm -rf device/xiaomi/duchamp
-        git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
+      - name: Sync OrangeFox 12.1
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
+          cd ${GITHUB_WORKSPACE}/OrangeFox
 
-    - name: Run Build
-      run: |
-        cd OrangeFox/fox_12.1
-        source build/envsetup.sh
-        export ALLOW_MISSING_DEPENDENCIES=true
-        export FOX_BUILD_DEVICE=duchamp
-        export LC_ALL=C
-        
-        lunch twrp_duchamp-eng || lunch omni_duchamp-eng
-        # CHỖ NÀY LÀ MẤU CHỐT: Dùng -j4 thay vì nproc để máy không bị tràn RAM
-        mka recoveryimage -j4
+          git clone https://gitlab.com/OrangeFox/sync.git
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: OrangeFox_Duchamp_Recovery
-        path: |
-          OrangeFox/fox_12.1/out/target/product/duchamp/*.img
-          OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
+          cd sync
+
+          chmod +x orangefox_sync.sh
+
+          ./orangefox_sync.sh \
+            --branch 12.1 \
+            --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+
+      - name: Clone Device Tree
+        run: |
+          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+
+          git clone \
+          -b test \
+          https://github.com/quocanhne123/android_device_xiaomi_duchamp.git \
+          device/xiaomi/duchamp
+
+      - name: Build
+        run: |
+          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export FOX_BUILD_DEVICE=duchamp
+          export LC_ALL="C"
+
+          # Tắt chế độ fail-fast của GitHub Actions để tránh bị văng do lỗi vặt trong envsetup
+          set +e
+          source build/envsetup.sh
+          
+          # Bật debug mode để xuất log chi tiết nếu có lỗi
+          set -x
+          
+          # Tự động thử lunch twrp, nếu thất bại (do device tree cài đặt là omni) sẽ thử lại với omni
+          lunch twrp_duchamp-eng || lunch omni_duchamp-eng
+          
+          # Bật lại chế độ fail-fast
+          set -e
+
+          mka vendorbootimage
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrangeFox-duchamp
+          # Chỉ upload các file image và file zip cài đặt để tiết kiệm thời gian và dung lượng
+          path: |
+            OrangeFox/fox_12.1/out/target/product/duchamp/*.img
+            OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
