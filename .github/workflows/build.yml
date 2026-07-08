@@ -10,11 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # 1. CHECKOUT REPO
     - name: Checkout
       uses: actions/checkout@v4
 
-    # 2. CÀI ĐẶT CÔNG CỤ REPO
     - name: Install Repo Tool
       run: |
         mkdir -p ~/bin
@@ -22,24 +20,30 @@ jobs:
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
-
-	# 3. KHỞI TẠO VÀ ĐỒNG BỘ MÃ NGUỒN (Đã fix lỗi Auth)
+    # BƯỚC QUAN TRỌNG: Tẩy não Git trước khi Sync
     - name: Sync Source Code
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
         
-        # BẮT BUỘC: Cấu hình Git bỏ qua kiểm tra Token tự động của GitHub
-        git config --global http.postBuffer 524288000
-        git config --global credential.helper store
+        # 1. Xóa sạch mọi header xác thực của GitHub
+        git config --global --unset-all http.https://github.com/.extraheader || true
+        git config --global --unset-all http.https://gitlab.com/.extraheader || true
         
-        # Ép Repo sử dụng link công khai không cần Auth
-        repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
-        
-        # Quan trọng: Ép Git dùng HTTPS thay vì SSH cho toàn bộ request
+        # 2. Ép sử dụng HTTPS thuần túy (không dùng SSH)
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
         git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
+        git config --global url."https://gitlab.com/".insteadOf "git://gitlab.com/"
         
-        # Chạy sync với flag --no-tags để giảm dung lượng và tránh lỗi check xác thực
+        # 3. Cấu hình Identity để tránh lỗi Permission
+        git config --global user.email "you@example.com"
+        git config --global user.name "Your Name"
+        
+        # 4. Chạy repo init với link GitHub Mirror (Ổn định hơn)
+        repo init --depth=1 -u https://github.com/OrangeFoxRecovery/Manifest.git -b fox_12.1 --git-lfs
+        
+        # 5. Sync với env bắt buộc không dùng interactive shell
+        export GIT_TERMINAL_PROMPT=0
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Maximize Build Space & Setup Swap
@@ -53,20 +57,17 @@ jobs:
         remove-codeql: 'true'
         remove-docker-images: 'true'
 
-    # 5. CÀI ĐẶT THƯ VIỆN ĐẦY ĐỦ (Ubuntu 24.04 mới)
     - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev libclang-dev python3 libncurses6 libncurses-dev
 
-    # 6. ĐỒNG BỘ DEVICE TREE CỦA BẠN
     - name: Setup Device Tree
       run: |
         cd OrangeFox/fox_12.1
         rm -rf device/xiaomi/duchamp
         git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-    # 7. TIẾN HÀNH BUILD RECOVERY
     - name: Run Build
       run: |
         cd OrangeFox/fox_12.1
@@ -78,7 +79,6 @@ jobs:
         lunch twrp_duchamp-eng || lunch omni_duchamp-eng
         mka recoveryimage -j$(nproc --all)
 
-    # 8. XUẤT FILE THÀNH PHẨM
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
