@@ -1,4 +1,4 @@
-name: Build OrangeFox duchamp (Slow & Stable)
+name: Build OrangeFox duchamp
 
 on:
   workflow_dispatch:
@@ -20,22 +20,28 @@ jobs:
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
 
-    # BƯỚC QUAN TRỌNG: Thiết lập môi trường "không đòi hỏi"
-    - name: Sync Source Code
+    # BƯỚC QUAN TRỌNG: XÓA SẠCH CONFIG CŨ
+    - name: Purge Git and Sync
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
         
-        # Vô hiệu hóa trình quản lý chứng thực (để không bao giờ hiện bảng đòi Auth)
+        # 1. Xóa sạch credential cũ của GitHub Actions
+        git config --global --unset-all http.https://github.com/.extraheader || true
+        git config --global --unset-all http.https://gitlab.com/.extraheader || true
         git config --global credential.helper ""
-        export GIT_TERMINAL_PROMPT=0
         
+        # 2. Ép HTTPS và bỏ qua xác thực SSH
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
+        
+        # 3. Cấu hình định danh
         git config --global user.name "BuildBot"
         git config --global user.email "build@bot.com"
         
-        # Init và Sync ở chế độ chậm để tránh lỗi kết nối
+        # 4. Chạy Repo Init và Sync
         repo init --depth=1 -u https://gitlab.com/OrangeFox/Manifest.git -b fox_12.1 --git-lfs
-        repo sync -c -j1 --force-sync --no-clone-bundle --no-tags
+        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Maximize Build Space & Setup Swap
       uses: easimon/maximize-build-space@master
@@ -48,7 +54,7 @@ jobs:
         remove-codeql: 'true'
         remove-docker-images: 'true'
 
-    - name: Prepare Build Environment
+    - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev libclang-dev python3 libncurses6 libncurses-dev
@@ -57,7 +63,6 @@ jobs:
         rm -rf device/xiaomi/duchamp
         git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-    # BƯỚC BUILD CHẬM: Dùng -j1 hoặc -j2 để máy ảo "dễ thở"
     - name: Run Build
       run: |
         cd OrangeFox/fox_12.1
@@ -67,8 +72,7 @@ jobs:
         export LC_ALL=C
         
         lunch twrp_duchamp-eng || lunch omni_duchamp-eng
-        # CHỈ DÙNG -j1 (Cực kỳ chậm nhưng không bị crash RAM)
-        mka recoveryimage -j1
+        mka recoveryimage -j$(nproc --all)
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
