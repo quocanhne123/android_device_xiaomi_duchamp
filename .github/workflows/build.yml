@@ -13,6 +13,14 @@ jobs:
 
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Install build environment
         run: |
@@ -54,16 +62,23 @@ jobs:
 
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_BUILD_DEVICE=duchamp
+          export LC_ALL="C"
 
+          set +e
           source build/envsetup.sh
 
-          lunch twrp_duchamp-eng
+          set -x
+          
+          lunch twrp_duchamp-eng || lunch omni_duchamp-eng
+
+          set -e
 
           mka vendorbootimage
 
-      - name: Upload
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox
+          name: OrangeFox-duchamp
           path: |
-            OrangeFox/fox_12.1/out/target/product/duchamp/*
+            OrangeFox/fox_12.1/out/target/product/duchamp/*.img
+            OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
