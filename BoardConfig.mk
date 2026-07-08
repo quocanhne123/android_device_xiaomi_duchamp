@@ -74,6 +74,7 @@ BOARD_TAGS_OFFSET := 0x07c88000
 BOARD_DTB_SIZE := 396043
 BOARD_DTB_OFFSET := 0x07c88000
 BOARD_HEADER_SIZE := 2128
+BOARD_INIT_BOOT_IMAGE_PARTITION_SIZE := 8388608
 
 # Vendor CMD
 BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2
@@ -191,7 +192,7 @@ TARGET_USES_LOGD := true
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
 BOARD_USES_METADATA_PARTITION := true
-TW_INCLUDE_FBE_METADATA_DECRYPT := true
+TW_INCLUDE_FBE_METADATA_DECRYPT := true	
 #TW_USE_FSCRYPT_POLICY := 2
 
 # Vendor_boot recovery ramdisk
@@ -206,7 +207,19 @@ TW_LOAD_VENDOR_BOOT_MODULES := true
 # Maintainer/Version
 TW_DEVICE_VERSION := perilouspike/beta-1
 
-TW_LOAD_VENDOR_MODULES := "*.ko"
+TW_LOAD_VENDOR_MODULES := \
+    adsp.ko \
+    emi.ko \
+    hwid.ko \
+    mcupm.ko \
+    mitee.ko \
+    mkp.ko \
+    mpbe.ko \
+    mtu3.ko \
+    rpmb.ko \
+    sec.ko \
+    smpu.ko \
+    zram.ko
 TW_SUPPORT_INPUT_AIDL_HAPTICS := true
 TW_SUPPORT_INPUT_AIDL_HAPTICS_FQNAME := "IVibrator/vibratorfeature"
 TW_SUPPORT_INPUT_AIDL_HAPTICS_FIX_OFF := true

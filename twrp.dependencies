@@ -1,0 +1,8 @@
+[
+  {
+    "remote": "TeamWin",
+    "repository": "android_device_mediatek_mtk_plpath_utils",
+    "target_path": "device/mediatek/mtk_plpath_utils",
+    "branch": "android-12.1"
+  }
+]

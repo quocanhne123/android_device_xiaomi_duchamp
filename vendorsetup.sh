@@ -1,1 +1,8 @@
-add_lunch_combo twrp_duchamp-eng
+export ALLOW_MISSING_DEPENDENCIES=true
+export FOX_BUILD_DEVICE=duchamp
+export FOX_AB_DEVICE=1
+export FOX_VIRTUAL_AB_DEVICE=1
+export OF_DEFAULT_KEYMASTER_VERSION=4.1
+
+# Nếu dùng prebuilt kernel
+export OF_FORCE_PREBUILT_KERNEL=1

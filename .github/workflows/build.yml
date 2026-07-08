@@ -1,0 +1,69 @@
+name: Build OrangeFox
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+
+      - name: Install build environment
+        run: |
+          sudo apt update
+          sudo apt -y upgrade
+
+          git clone https://gitlab.com/OrangeFox/misc/scripts
+          cd scripts
+
+          sudo bash setup/android_build_env.sh
+
+      - name: Sync OrangeFox 12.1
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
+          cd ${GITHUB_WORKSPACE}/OrangeFox
+
+          git clone https://gitlab.com/OrangeFox/sync.git
+
+          cd sync
+
+          chmod +x orangefox_sync.sh
+
+          ./orangefox_sync.sh \
+            --branch 12.1 \
+            --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+
+      - name: Clone Device Tree
+        run: |
+          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+
+          git clone \
+          -b test \
+          https://github.com/quocanhne123/android_device_xiaomi_duchamp.git \
+          device/xiaomi/duchamp
+
+      - name: Build
+        run: |
+          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export FOX_BUILD_DEVICE=duchamp
+
+          source build/envsetup.sh
+
+          lunch twrp_duchamp-eng
+
+          mka vendorbootimage
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrangeFox
+          path: |
+            OrangeFox/fox_12.1/out/target/product/duchamp/*
