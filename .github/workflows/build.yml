@@ -39,9 +39,16 @@ jobs:
       run: |
         mkdir -p OrangeFox/fox_12.1
         cd OrangeFox/fox_12.1
+        
         git config --global user.name "quocanhne123"
         git config --global user.email "quocanhne123@github.com"
+        git config --global credential.helper store
         
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
+        
+        export GIT_TERMINAL_PROMPT=0
+
         repo init --depth=1 -u https://github.com/OrangeFoxRecovery/Manifest.git -b fox_12.1 --git-lfs
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
