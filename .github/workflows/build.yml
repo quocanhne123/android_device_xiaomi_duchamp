@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  # Cấu hình để ép theme không bị check UI
+  # Cấu hình ép theme để không bị check UI
   TW_THEME: portrait_hdpi
   TARGET_SCREEN_WIDTH: 1220
   TARGET_SCREEN_HEIGHT: 2712
@@ -57,10 +57,18 @@ jobs:
       - name: Build
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-          source build/envsetup.sh
-          lunch fox_duchamp-eng
           
-          # Lệnh build j1 theo yêu cầu của bạn
+          # 1. Ép bash KHÔNG ĐƯỢC DỪNG khi gặp lỗi nạp môi trường
+          set +e
+          source build/envsetup.sh
+          
+          # 2. Tự động thử các kiểu lunch khác nhau, trúng cái nào thì chạy cái đó
+          lunch fox_duchamp-eng || lunch twrp_duchamp-eng || lunch omni_duchamp-eng
+          
+          # 3. Trả lại chế độ nghiêm ngặt để kiểm soát tiến trình build chính
+          set -e
+          
+          # 4. Ép chạy j1 theo đúng ý bạn để không bị tràn RAM nửa chừng
           make -j1 vendorbootimage
 
       - name: Upload Artifact
