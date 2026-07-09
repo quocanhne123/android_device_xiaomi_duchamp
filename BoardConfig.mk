@@ -124,7 +124,7 @@ TW_INCLUDE_FASTBOOTD := true
 
 # Giao diện & Tính năng cơ bản
 TW_FRAMERATE := 60
-TW_THEME := portrait_xhdpi
+TW_THEME := portrait_hdpi
 TW_EXTRA_LANGUAGES := true
 TW_INPUT_BLACKLIST := "hbtp_vm"
 TW_USE_TOOLBOX := true
