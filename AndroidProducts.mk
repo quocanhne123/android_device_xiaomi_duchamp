@@ -1,5 +1,5 @@
 PRODUCT_MAKEFILES := \
-    $(LOCAL_DIR)/fox_duchamp.mk
+    $(LOCAL_DIR)/twrp_duchamp.mk
 
 COMMON_LUNCH_CHOICES := \
-    fox_duchamp-eng
+    twrp_duchamp-eng
