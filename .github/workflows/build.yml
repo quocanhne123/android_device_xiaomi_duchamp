@@ -58,6 +58,9 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
+          # XÓA CACHE TUYỆT ĐỐI ĐỂ ÉP ĐỌC LẠI CẤU HÌNH
+          rm -rf out/
+          
           # 1. Ép bash KHÔNG ĐƯỢC DỪNG khi gặp lỗi nạp môi trường
           set +e
           source build/envsetup.sh
@@ -68,7 +71,7 @@ jobs:
           # 3. Trả lại chế độ nghiêm ngặt để kiểm soát tiến trình build chính
           set -e
           
-          # 4. Ép chạy j1 theo đúng ý bạn để không bị tràn RAM nửa chừng
+          # 4. Ép chạy j1 theo đúng ý bạn để không bị tràn RAM
           make -j1 vendorbootimage
 
       - name: Upload Artifact
