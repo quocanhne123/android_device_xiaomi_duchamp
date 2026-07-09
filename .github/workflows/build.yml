@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  # Cấu hình ép theme để không bị check UI
+  # Cấu hình cứng để hệ thống build bắt buộc phải nhận diện
   TW_THEME: portrait_hdpi
   TARGET_SCREEN_WIDTH: 1220
   TARGET_SCREEN_HEIGHT: 2712
@@ -13,6 +13,9 @@ env:
   ALLOW_MISSING_DEPENDENCIES: true
   FOX_BUILD_DEVICE: duchamp
   LC_ALL: C
+  # Ép biến trực tiếp vào môi trường build
+  TW_MAX_BRIGHTNESS: "2047"
+  TW_DEFAULT_BRIGHTNESS: "1200"
 
 jobs:
   build:
@@ -58,21 +61,22 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          # XÓA CACHE TUYỆT ĐỐI ĐỂ ÉP ĐỌC LẠI CẤU HÌNH
+          # 1. Xóa sạch cache để đảm bảo không còn tàn dư lỗi cũ
           rm -rf out/
           
-          # 1. Ép bash KHÔNG ĐƯỢC DỪNG khi gặp lỗi nạp môi trường
+          # 2. Source build
           set +e
           source build/envsetup.sh
           
-          # 2. Tự động thử các kiểu lunch khác nhau, trúng cái nào thì chạy cái đó
+          # 3. Lunch (Dùng || để nếu không thấy target này thì thử target khác)
           lunch fox_duchamp-eng || lunch twrp_duchamp-eng || lunch omni_duchamp-eng
           
-          # 3. Trả lại chế độ nghiêm ngặt để kiểm soát tiến trình build chính
           set -e
           
-          # 4. Ép chạy j1 theo đúng ý bạn để không bị tràn RAM
-          make -j1 vendorbootimage
+          # 4. Lệnh Build với J1 và ép buộc các biến quan trọng một lần nữa
+          make -j1 vendorbootimage \
+            TW_MAX_BRIGHTNESS=2047 \
+            TW_DEFAULT_BRIGHTNESS=1200
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
