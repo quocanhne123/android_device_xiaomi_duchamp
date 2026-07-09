@@ -206,20 +206,19 @@ TW_LOAD_VENDOR_BOOT_MODULES := true
 
 # Maintainer/Version
 TW_DEVICE_VERSION := perilouspike/beta-1
-
-TW_LOAD_VENDOR_MODULES := \
-    adsp.ko \
-    emi.ko \
-    hwid.ko \
-    mcupm.ko \
-    mitee.ko \
-    mkp.ko \
-    mpbe.ko \
-    mtu3.ko \
-    rpmb.ko \
-    sec.ko \
-    smpu.ko \
-    zram.ko
+BOARD_VENDOR_RAMDISK_KERNEL_MODULES := \
+    $(DEVICE_PATH)/recovery/root/lib/modules/adsp.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/emi.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/hwid.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/mcupm.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/mitee.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/mkp.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/mpbe.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/mtu3.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/rpmb.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/sec.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/smpu.ko \
+    $(DEVICE_PATH)/recovery/root/lib/modules/zram.ko
 TW_SUPPORT_INPUT_AIDL_HAPTICS := true
 TW_SUPPORT_INPUT_AIDL_HAPTICS_FQNAME := "IVibrator/vibratorfeature"
 TW_SUPPORT_INPUT_AIDL_HAPTICS_FIX_OFF := true
