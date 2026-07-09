@@ -124,7 +124,7 @@ TW_INCLUDE_FASTBOOTD := true
 
 # Giao diện & Tính năng cơ bản
 TW_FRAMERATE := 60
-TW_THEME := portrait_hdpi
+TW_THEME := portrait_xhdpi
 TW_EXTRA_LANGUAGES := true
 TW_INPUT_BLACKLIST := "hbtp_vm"
 TW_USE_TOOLBOX := true
@@ -139,6 +139,8 @@ TW_INCLUDE_RESETPROP := true
 TW_DEFAULT_BRIGHTNESS := 400
 TW_MAX_BRIGHTNESS := 2047
 TW_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
+TARGET_SCREEN_WIDTH := 1220
+TARGET_SCREEN_HEIGHT := 2712
 
 # Loại trừ phần không cần thiết để tránh tràn phân vùng
 TW_EXCLUDE_APEX := true
