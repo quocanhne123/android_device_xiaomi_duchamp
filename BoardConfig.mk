@@ -1,7 +1,7 @@
 DEVICE_PATH := device/xiaomi/duchamp
 
 # ==========================================
-# CÁC LỆNH "LÁCH LUẬT" BUILD (Giữ nguyên)
+# CÁC LỆNH "LÁCH LUẬT" BUILD
 # ==========================================
 ALLOW_MISSING_DEPENDENCIES := true
 BUILD_BROKEN_DUP_RULES := true
@@ -11,7 +11,7 @@ BUILD_BROKEN_MISSING_REQUIRED_MODULES := true
 SOONG_ALLOW_MISSING_DEPENDENCIES := true
 
 # ==========================================
-# KIẾN TRÚC CPU (Đã dọn dẹp các dòng trống)
+# KIẾN TRÚC CPU
 # ==========================================
 TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
@@ -41,25 +41,14 @@ BOARD_HAS_MTK_HARDWARE := true
 BOARD_USES_MTK_HARDWARE := true
 MTK_HARDWARE := true
 
-ENABLE_CPUSETS := true
-ENABLE_SCHEDBOOST := true
-
 # ==========================================
-# BOOTLOADER
-# ==========================================
-TARGET_BOOTLOADER_BOARD_NAME := $(TARGET_OTA_ASSERT_DEVICE)
-TARGET_NO_BOOTLOADER := true
-TARGET_USES_UEFI := true
-
-# ==========================================
-# KERNEL & VENDOR_BOOT (Đã fix xung đột)
+# BOOTLOADER & KERNEL (Dùng thông số từ JSON)
 # ==========================================
 TARGET_NO_KERNEL := true
 BOARD_KERNEL_SEPARATED_DTBO := true
 TARGET_KERNEL_ARCH := $(TARGET_ARCH)
 TARGET_KERNEL_HEADER_ARCH := $(TARGET_ARCH)
 
-# Đã xóa BOARD_USES_INIT_BOOT vì mâu thuẫn với vendor_boot
 BOARD_USES_VENDOR_BOOT := true
 BOARD_MOVE_RECOVERY_RESOURCES_TO_VENDOR_BOOT := true
 BOARD_INCLUDE_RECOVERY_RAMDISK_IN_VENDOR_BOOT := true
@@ -69,17 +58,14 @@ BOARD_VENDOR_BOOTIMAGE_FILE_SYSTEM_TYPE := lz4
 BOARD_KERNEL_IMAGE_NAME := Image
 BOARD_INCLUDE_DTB_IN_BOOTIMG := true
 
-# ⚠️ CẢNH BÁO: CÁC THÔNG SỐ OFFSET NÀY PHẢI KHỚP VỚI ROM STOCK
+# CẬP NHẬT TỪ JSON
 BOARD_PAGE_SIZE := 4096
 BOARD_BOOT_HEADER_VERSION := 4
-BOARD_KERNEL_BASE := 0x3fff8000
-BOARD_RAMDISK_OFFSET := 0x26f08000
-BOARD_KERNEL_OFFSET := 0x00008000
-BOARD_TAGS_OFFSET := 0x07c88000
-BOARD_DTB_SIZE := 396043
-BOARD_DTB_OFFSET := 0x07c88000
-BOARD_HEADER_SIZE := 2128
-# BOARD_INIT_BOOT_IMAGE_PARTITION_SIZE := 8388608 (Đã tắt theo init_boot)
+BOARD_KERNEL_BASE := 0x00000000
+BOARD_KERNEL_OFFSET := 0x40000000
+BOARD_RAMDISK_OFFSET := 0x66f00000
+BOARD_TAGS_OFFSET := 0x47c80000
+BOARD_DTB_OFFSET := 0x47c80000
 
 BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2
 
@@ -97,7 +83,7 @@ TARGET_PREBUILT_DTB := $(DEVICE_PATH)/prebuilt/dtb.img
 BOARD_PREBUILT_DTBIMAGE_DIR := $(DEVICE_PATH)/prebuilt
 
 # ==========================================
-# PHÂN VÙNG (PARTITIONS)
+# PHÂN VÙNG
 # ==========================================
 BOARD_FLASH_BLOCK_SIZE := 262144
 BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE := 67108864
@@ -110,27 +96,10 @@ BOARD_PARTITION_LIST := $(call to-upper, $(BOARD_MAIN_PARTITION_LIST))
 $(foreach p, $(BOARD_PARTITION_LIST), $(eval BOARD_$(p)IMAGE_FILE_SYSTEM_TYPE := erofs))
 $(foreach p, $(BOARD_PARTITION_LIST), $(eval TARGET_COPY_OUT_$(p) := $(call to-lower, $(p))))
 
-BOARD_HAS_LARGE_FILESYSTEM := true
-BOARD_SYSTEMIMAGE_PARTITION_TYPE := ext4
-BOARD_USERDATAIMAGE_FILE_SYSTEM_TYPE := f2fs
-BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
-BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := ext4
-BOARD_VENDOR_DLKMIMAGE_FILE_SYSTEM_TYPE := ext4
-BOARD_ODM_DLKIMAGE_FILE_SYSTEM_TYPE := ext4
-
-TARGET_COPY_OUT_VENDOR := vendor
-TARGET_COPY_OUT_PRODUCT := product
-TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
-TARGET_COPY_OUT_ODM_DLKM := odm_dlkm
-
 # ==========================================
-# RECOVERY (TWRP/ORANGEFOX)
+# RECOVERY
 # ==========================================
 TARGET_RECOVERY_PIXEL_FORMAT := BGRA_8888
-TARGET_USERIMAGES_USE_EXT4 := true
-TARGET_USERIMAGES_USE_F2FS := true
-BOARD_USES_VENDOR_DLKMIMAGE := true
-BOARD_USES_ODM_DLKIMAGE := true
 TARGET_NO_RECOVERY := true
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery/root/system/etc/recovery.fstab
 
@@ -142,13 +111,8 @@ TARGET_SYSTEM_PROP += $(DEVICE_PATH)/system.prop
 
 # AVB / BẢO MẬT
 BOARD_AVB_ENABLE := true
-PLATFORM_VERSION := 99
-PLATFORM_VERSION_LAST_STABLE := $(PLATFORM_VERSION)
-PLATFORM_SECURITY_PATCH := 2099-12-31
-BOOT_SECURITY_PATCH := $(PLATFORM_SECURITY_PATCH)
-VENDOR_SECURITY_PATCH := $(PLATFORM_SECURITY_PATCH)
 
-# CẤU HÌNH GIAO DIỆN & TÍNH NĂNG TWRP
+# CẤU HÌNH TWRP
 TW_FRAMERATE := 60
 TW_THEME := portrait_hdpi
 TW_EXTRA_LANGUAGES := true
@@ -165,61 +129,21 @@ TW_DEFAULT_BRIGHTNESS := 400
 TW_MAX_BRIGHTNESS := 2047
 TW_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
 
+# Tắt các thành phần nặng để build Minimal Recovery
 TW_EXCLUDE_APEX := true
 TW_EXCLUDE_PYTHON := true
 TW_EXCLUDE_NANO := true
 TW_EXCLUDE_TWRPAPP := true
 TW_EXCLUDE_TZDATA := true
 TW_EXCLUDE_BASH := true
-TW_EXCLUDE_LPTOOLS := true
-TW_EXCLUDE_LPDUMP := true
 
 TWRP_INCLUDE_LOGCAT := true
-TARGET_USES_LOGD := true
 
-# ==========================================
-# 🛑 MÃ HÓA (CRYPTO) - ĐÃ TẮT ĐỂ FIX LỖI TREO LOGO
-# Bật lại sau khi xác nhận màn hình chính vào được
-# ==========================================
-# TW_INCLUDE_CRYPTO := true
-# TW_INCLUDE_CRYPTO_FBE := true
-# BOARD_USES_METADATA_PARTITION := true
-# TW_INCLUDE_FBE_METADATA_DECRYPT := true	
-# TW_USE_FSCRYPT_POLICY := 2
-
-# ==========================================
-# KERNEL MODULES & VENDOR BOOT EXTRA
-# ==========================================
+# CẤU HÌNH MODULES (ĐẢM BẢO FILE .KO CÓ THẬT TRONG THƯ MỤC NÀY)
 BOARD_USES_GENERIC_KERNEL_IMAGE := true
-BOARD_MOVE_GSI_AVB_KEYS_TO_VENDOR_BOOT := true
 TW_LOAD_VENDOR_BOOT_MODULES := true
-
-TW_DEVICE_VERSION := perilouspike/beta-1
-
-# Cần đảm bảo các file .ko này có thật trong folder recovery/root/lib/modules/
-BOARD_VENDOR_RAMDISK_KERNEL_MODULES := \
-    $(DEVICE_PATH)/recovery/root/lib/modules/adsp.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/emi.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/hwid.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/mcupm.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/mitee.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/mkp.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/mpbe.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/mtu3.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/rpmb.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/sec.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/smpu.ko \
-    $(DEVICE_PATH)/recovery/root/lib/modules/zram.ko
-
 BOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD := true
 
-TW_SUPPORT_INPUT_AIDL_HAPTICS := true
-TW_SUPPORT_INPUT_AIDL_HAPTICS_FQNAME := "IVibrator/vibratorfeature"
-TW_SUPPORT_INPUT_AIDL_HAPTICS_FIX_OFF := true
-TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone53/temp"
-TARGET_USE_CUSTOM_LUN_FILE_PATH := /config/usb_gadget/g1/functions/mass_storage.usb0/lun.%d/file
-TW_BATTERY_SYSFS_WAIT_SECONDS := 6
-TW_BACKUP_EXCLUSIONS := /data/fonts
-TW_USE_SERIALNO_PROPERTY_FOR_DEVICE_ID := true
-TW_INCLUDE_FASTBOOTD := true
-TW_USE_NEW_MINADBD := true
+# Lưu ý: Hãy đảm bảo đường dẫn tới các file .ko trong thư mục
+# recovery/root/lib/modules/ là chính xác tuyệt đối
+BOARD_VENDOR_RAMDISK_KERNEL_MODULES := $(wildcard $(DEVICE_PATH)/recovery/root/lib/modules/*.ko)
