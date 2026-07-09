@@ -47,6 +47,7 @@ jobs:
       - name: Build
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_BUILD_DEVICE=duchamp
           export LC_ALL="C"
@@ -54,12 +55,16 @@ jobs:
           set +e
           source build/envsetup.sh
           set -x
+          
+          # Lunch
           lunch twrp_duchamp-eng || lunch omni_duchamp-eng
           set -e
 
-          # --- CHỖ NÀY LÀ MẤU CHỐT ---
-          # Dùng make -j4 thay vì mka để giới hạn CPU, tránh crash RAM
-          make -j4 vendorbootimage
+          # --- CHIẾN THUẬT "LÌ LỢM" ---
+          # Sử dụng -j1 để ép build từng file một.
+          # RAM sẽ không bao giờ bị dồn cục gây tràn (Out of memory) ở 82%.
+          # Lệnh 'make' ổn định hơn 'mka' trong môi trường hạn chế tài nguyên.
+          make -j1 vendorbootimage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
