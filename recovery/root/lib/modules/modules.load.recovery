@@ -113,6 +113,7 @@ mt6338-core.ko
 clkbuf.ko
 ffa-module.ko
 teeperf.ko
+miev.ko
 mitee.ko
 mtk-spmi-pmic-adc.ko
 pinctrl-mtk-common-v2_debug.ko
