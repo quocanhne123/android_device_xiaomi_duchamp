@@ -1,4 +1,4 @@
-name: Build OrangeFox
+name: Build Recovery
 
 on:
   workflow_dispatch:
@@ -64,16 +64,17 @@ jobs:
           # 1. Xóa sạch cache để đảm bảo không còn tàn dư lỗi cũ
           rm -rf out/
           
-          # 2. Source build
+          # 2. Tắt chế độ dừng khi có cảnh báo lúc nạp môi trường
           set +e
           source build/envsetup.sh
           
-          # 3. Lunch (Dùng || để nếu không thấy target này thì thử target khác)
-          lunch fox_duchamp-eng || lunch twrp_duchamp-eng || lunch omni_duchamp-eng
-          
+          # 3. Bật lại chế độ kiểm soát lỗi nghiêm ngặt
           set -e
           
-          # 4. Lệnh Build với J1 và ép buộc các biến quan trọng một lần nữa
+          # 4. GỌI CHÍNH XÁC TARGET CỦA TWRP (Chốt chặn quan trọng nhất)
+          lunch twrp_duchamp-eng
+          
+          # 5. Lệnh Build với J1 và ép buộc các biến quan trọng
           make -j1 vendorbootimage \
             TW_MAX_BRIGHTNESS=2047 \
             TW_DEFAULT_BRIGHTNESS=1200
@@ -81,7 +82,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp
+          name: Recovery-duchamp
           path: |
             OrangeFox/fox_12.1/out/target/product/duchamp/*.img
             OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
