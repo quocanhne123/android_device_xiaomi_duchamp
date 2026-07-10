@@ -31,4 +31,23 @@ PRODUCT_MANUFACTURER := xiaomi
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.twrp.vendor_boot=true \
     persist.sys.fuse.passthrough.enable=true
+# =========================================================
+# ÉP GIẢM CÂN ORANGEFOX (BẮT BUỘC ĐỂ TRONG FILE PRODUCT MK)
+# =========================================================
+TW_ONLY_ENGLISH := true
+TW_EXTRA_LANGUAGES := false
+
+FOX_EXCLUDE_THEMES := true
+FOX_EXCLUDE_GREY_THEME := true
+FOX_BUGGED_THEMES := true
+
+TW_EXCLUDE_TWRPAPP := true
+TW_EXCLUDE_NANO := true
+TW_EXCLUDE_BASH := true
+TW_EXCLUDE_PYTHON := true
+FOX_USE_BASH := false
+FOX_USE_NANO := false
+FOX_USE_TAR := false
+FOX_REMOVE_AAPT := true
+FOX_DISABLE_APP_MANAGER := true
     
