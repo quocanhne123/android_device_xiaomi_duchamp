@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 env:
-  # Cấu hình ép theme
   TW_THEME: portrait_hdpi
   TARGET_SCREEN_WIDTH: 1220
   TARGET_SCREEN_HEIGHT: 2712
@@ -13,9 +12,20 @@ env:
   ALLOW_MISSING_DEPENDENCIES: true
   FOX_BUILD_DEVICE: duchamp
   LC_ALL: C
-  # Ép biến trực tiếp chống lỗi nhận diện độ sáng
   TW_MAX_BRIGHTNESS: "2047"
   TW_DEFAULT_BRIGHTNESS: "1200"
+  
+  # ================================================
+  # CÁC CỜ ÉP GIẢM CÂN CỰC MẠNH (BẮT BUỘC NHẬN)
+  # ================================================
+  FOX_EXCLUDE_THEMES: "1"
+  TW_ONLY_ENGLISH: "true"
+  TW_EXCLUDE_TWRPAPP: "1"
+  FOX_USE_BASH: "0"
+  FOX_USE_NANO: "0"
+  FOX_USE_TAR: "0"
+  FOX_REMOVE_AAPT: "1"
+  FOX_DISABLE_APP_MANAGER: "1"
 
 jobs:
   build:
@@ -51,8 +61,6 @@ jobs:
           cd sync
           chmod +x orangefox_sync.sh
           ./orangefox_sync.sh --branch 12.1 --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-          
-          # BẢO HIỂM Ổ CỨNG: Xóa sạch thư mục .repo để lấy lại 30-40GB trống trước khi build
           rm -rf ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1/.repo
 
       - name: Clone Device Tree
@@ -63,21 +71,23 @@ jobs:
       - name: Build
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-          
-          # Xóa cache cũ cho sạch sẽ
           rm -rf out/
           
           set +e
           source build/envsetup.sh
           set -e
           
-          # Lunch target thiết bị của bạn
           lunch twrp_duchamp-eng
           
-          # BẢO HIỂM RAM: Chạy đơn nhân -j1 theo đúng ý bạn, không lo tràn RAM
+          # Truyền trực tiếp các biến vào lệnh make để đảm bảo ăn 100%
           make -j1 vendorbootimage \
-            TW_MAX_BRIGHTNESS=2047 \
-            TW_DEFAULT_BRIGHTNESS=1200
+            FOX_EXCLUDE_THEMES=1 \
+            TW_ONLY_ENGLISH=1 \
+            TW_EXCLUDE_TWRPAPP=1 \
+            FOX_USE_BASH=0 \
+            FOX_USE_NANO=0 \
+            FOX_USE_TAR=0 \
+            FOX_REMOVE_AAPT=1
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
