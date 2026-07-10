@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  # Cấu hình cứng để hệ thống build bắt buộc phải nhận diện
+  # Cấu hình ép theme
   TW_THEME: portrait_hdpi
   TARGET_SCREEN_WIDTH: 1220
   TARGET_SCREEN_HEIGHT: 2712
@@ -13,7 +13,7 @@ env:
   ALLOW_MISSING_DEPENDENCIES: true
   FOX_BUILD_DEVICE: duchamp
   LC_ALL: C
-  # Ép biến trực tiếp vào môi trường build
+  # Ép biến trực tiếp chống lỗi nhận diện độ sáng
   TW_MAX_BRIGHTNESS: "2047"
   TW_DEFAULT_BRIGHTNESS: "1200"
 
@@ -51,6 +51,9 @@ jobs:
           cd sync
           chmod +x orangefox_sync.sh
           ./orangefox_sync.sh --branch 12.1 --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+          
+          # BẢO HIỂM Ổ CỨNG: Xóa sạch thư mục .repo để lấy lại 30-40GB trống trước khi build
+          rm -rf ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1/.repo
 
       - name: Clone Device Tree
         run: |
@@ -61,20 +64,17 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          # 1. Xóa sạch cache để đảm bảo không còn tàn dư lỗi cũ
+          # Xóa cache cũ cho sạch sẽ
           rm -rf out/
           
-          # 2. Tắt chế độ dừng khi có cảnh báo lúc nạp môi trường
           set +e
           source build/envsetup.sh
-          
-          # 3. Bật lại chế độ kiểm soát lỗi nghiêm ngặt
           set -e
           
-          # 4. GỌI CHÍNH XÁC TARGET CỦA TWRP (Chốt chặn quan trọng nhất)
+          # Lunch target thiết bị của bạn
           lunch twrp_duchamp-eng
           
-          # 5. Lệnh Build với J1 và ép buộc các biến quan trọng
+          # BẢO HIỂM RAM: Chạy đơn nhân -j1 theo đúng ý bạn, không lo tràn RAM
           make -j1 vendorbootimage \
             TW_MAX_BRIGHTNESS=2047 \
             TW_DEFAULT_BRIGHTNESS=1200
