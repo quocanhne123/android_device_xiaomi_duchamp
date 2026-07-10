@@ -153,6 +153,7 @@ TW_EXCLUDE_TWRPAPP := true
 TW_EXCLUDE_TZDATA := true
 TW_EXCLUDE_BASH := true
 TW_ONLY_ENGLISH := true
+FOX_EXCLUDE_THEMES := true
 
 # Driver / Mô-đun nhân
 TW_LOAD_VENDOR_BOOT_MODULES := true
