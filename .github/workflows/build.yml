@@ -55,12 +55,21 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: Ép dung lượng Modules & Bơm cờ tối ưu
+      - name: Ép dung lượng & Tiêu diệt File Rác
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          echo "🗜️ CẮT MÃ GỠ LỖI TẤT CẢ MODULES (Giữ nguyên tính năng, chỉ giảm size)..."
-          find device/xiaomi/duchamp -name "*.ko" -exec aarch64-linux-gnu-strip --strip-unneeded {} + 2>/dev/null || true
+          echo "🪓 ÁM SÁT CÁC FILE RÁC KHỔNG LỒ..."
+          # Xóa file TA 12MB (Camera AI/Widevine)
+          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/a734eed9-d6a1-4244-aa507c99719e7b7f.ta
+          # Xóa Busybox build sẵn (OrangeFox tự build cái mới)
+          rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
+          # Xóa 2 file TA vân tay/DRM (1.9MB + 1.4MB)
+          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/f13010e0-2ae1-11e5-896a0002a5d5c51d.ta
+          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/dba51a17-0563-11e7-93b16fa7b0071a51.ta
+          
+          echo "🗜️ CẮT MÃ GỠ LỖI MODULES (Dùng cờ --strip-debug mạnh hơn)..."
+          find device/xiaomi/duchamp -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} + 2>/dev/null || true
           
           echo "🗑️ XÓA MODULES RÁC MEDIATEK DUMP..."
           find device/xiaomi/duchamp -name "aee_aed.ko" -delete
@@ -72,12 +81,15 @@ jobs:
           
           cat << 'EOF' >> "$TARGET_MK"
           
-          # Ép giảm dung lượng
+          # Ép giảm dung lượng (Tắt các công cụ không cần thiết)
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
           TW_EXCLUDE_TWRPAPP := true
           TW_ONLY_ENGLISH := true
           FOX_ENABLE_APP_MANAGER := false
+          FOX_EXCLUDE_BASH := true
+          FOX_EXCLUDE_NANO_EDITOR := true
+          FOX_EXCLUDE_TAR := true
           
           # Hỗ trợ Decryption (Giải mã bộ nhớ FBE)
           TW_INCLUDE_CRYPTO := true
@@ -100,7 +112,6 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          # KHÔNG dùng set -e ở đây để Github không dập cầu dao khi lệnh build báo lỗi
           set +e 
           
           source build/envsetup.sh
@@ -108,9 +119,8 @@ jobs:
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
-          echo "🔥 BẮT ĐẦU BUILD VÀ CHỜ ĐỢI CÁI BẪY HOẠT ĐỘNG..."
+          echo "🔥 BẮT ĐẦU BUILD: Chờ xem 19MB bị bốc hơi..."
           
-          # Lệnh build chính, nếu lỗi vượt quá dung lượng thì khối lệnh {} sẽ lập tức chạy
           make -j1 vendorbootimage || {
             echo "========================================="
             echo "❌ BUILD VẪN THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
