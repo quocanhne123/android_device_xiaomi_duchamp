@@ -60,28 +60,25 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
           echo "🪓 ÁM SÁT CÁC FILE RÁC KHỔNG LỒ..."
-          # Xóa file TA 12MB (Camera AI/Widevine)
-          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/a734eed9-d6a1-4244-aa507c99719e7b7f.ta
-          # Xóa Busybox build sẵn (OrangeFox tự build cái mới)
-          rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
-          # Xóa 2 file TA vân tay/DRM (1.9MB + 1.4MB)
-          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/f13010e0-2ae1-11e5-896a0002a5d5c51d.ta
-          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/dba51a17-0563-11e7-93b16fa7b0071a51.ta
+          # Xóa thẳng tay toàn bộ file bảo mật TA rác có dung lượng > 400KB (Tiết kiệm ~6MB)
+          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +400k -delete
           
-          echo "🗜️ CẮT MÃ GỠ LỖI MODULES (Dùng cờ --strip-debug mạnh hơn)..."
-          find device/xiaomi/duchamp -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} + 2>/dev/null || true
+          # Cắt giảm các file thừa khác
+          rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
+          
+          echo "🗜️ CẮT MÃ GỠ LỖI MODULES KHẮT KHE HƠN..."
+          find device/xiaomi/duchamp -name "*.ko" -exec aarch64-linux-gnu-strip --strip-unneeded {} + 2>/dev/null || true
           
           echo "🗑️ XÓA MODULES RÁC MEDIATEK DUMP..."
           find device/xiaomi/duchamp -name "aee_aed.ko" -delete
           find device/xiaomi/duchamp -name "mrdump.ko" -delete
           find device/xiaomi/duchamp -name "log_store.ko" -delete
           
-          echo "🛠️ BƠM CỜ CẤU HÌNH VÀO DEVICE TREE..."
-          TARGET_MK=$(find device/xiaomi/duchamp/ -name "*duchamp.mk" | head -n 1)
+          echo "🛠️ BƠM CỜ ÉP CÂN VÀO BOARDCONFIG (CHỖ NÀY OFOX MỚI CHỊU ĐỌC)..."
+          cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
-          cat << 'EOF' >> "$TARGET_MK"
-          
-          # Ép giảm dung lượng (Tắt các công cụ không cần thiết)
+          # --- CÁC CỜ ÉP CÂN TỐI ĐA CỦA ORANGEFOX ---
+          FOX_DRASTIC_SIZE_REDUCTION := true
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
           TW_EXCLUDE_TWRPAPP := true
@@ -90,6 +87,12 @@ jobs:
           FOX_EXCLUDE_BASH := true
           FOX_EXCLUDE_NANO_EDITOR := true
           FOX_EXCLUDE_TAR := true
+          FOX_EXCLUDE_ARABIC_FONT := true
+          FOX_EXCLUDE_AAPT := true
+          
+          # Nén ramdisk mức cao nhất
+          BOARD_RAMDISK_COMPRESSION_ARGS := -9
+          BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
           
           # Hỗ trợ Decryption (Giải mã bộ nhớ FBE)
           TW_INCLUDE_CRYPTO := true
@@ -97,16 +100,12 @@ jobs:
           TW_INCLUDE_FBE_METADATA_DECRYPT := true
           BOARD_USES_METADATA_PARTITION := true
           
-          # Chống lag, tối ưu hiển thị và độ rung
+          # Chống lag
           TW_MAX_BRIGHTNESS := 2047
           TW_DEFAULT_BRIGHTNESS := 1200
           TW_Y_OFFSET := 80
           TW_HAPTICS_OEM_VIBRATOR := true
           EOF
-          
-          # Nén file ảnh mức độ cao nhất (-9)
-          echo "BOARD_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
-          echo "BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
 
       - name: Build OrangeFox với -j1 & Bắt Lỗi
         run: |
@@ -119,7 +118,7 @@ jobs:
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
-          echo "🔥 BẮT ĐẦU BUILD: Chờ xem 19MB bị bốc hơi..."
+          echo "🔥 BẮT ĐẦU BUILD: Chờ xem 5.4MB cuối cùng bốc hơi..."
           
           make -j1 vendorbootimage || {
             echo "========================================="
