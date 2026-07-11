@@ -96,18 +96,35 @@ jobs:
           echo "BOARD_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
           echo "BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
 
-      - name: Build OrangeFox với -j1
+      - name: Build OrangeFox với -j1 & Bắt Lỗi
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-          set +e
+          
+          # KHÔNG dùng set -e ở đây để Github không dập cầu dao khi lệnh build báo lỗi
+          set +e 
+          
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_MINI_BUILD=1
-          set -e
           lunch twrp_duchamp-eng
           
-          echo "🔥 BẮT ĐẦU BUILD: make -j1 vendorbootimage..."
-          make -j1 vendorbootimage
+          echo "🔥 BẮT ĐẦU BUILD VÀ CHỜ ĐỢI CÁI BẪY HOẠT ĐỘNG..."
+          
+          # Lệnh build chính, nếu lỗi vượt quá dung lượng thì khối lệnh {} sẽ lập tức chạy
+          make -j1 vendorbootimage || {
+            echo "========================================="
+            echo "❌ BUILD VẪN THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
+            echo "========================================="
+            
+            echo "🗂️ TOP 20 FILE NẶNG NHẤT BỊ NHÉT VÀO RECOVERY:"
+            find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
+            
+            echo ""
+            echo "🗂️ TOP 20 FILE NẶNG NHẤT TRONG KHO MÃ NGUỒN (DEVICE TREE):"
+            find device/xiaomi/duchamp/ -type f -exec du -h {} + | sort -rh | head -n 20
+            
+            exit 1
+          }
 
       - name: Upload File Artifact
         uses: actions/upload-artifact@v4
