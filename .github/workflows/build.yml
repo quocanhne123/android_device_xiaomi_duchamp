@@ -14,18 +14,6 @@ env:
   LC_ALL: C
   TW_MAX_BRIGHTNESS: "2047"
   TW_DEFAULT_BRIGHTNESS: "1200"
-  
-  # ================================================
-  # CÁC CỜ ÉP GIẢM CÂN CỰC MẠNH (BẮT BUỘC NHẬN)
-  # ================================================
-  FOX_EXCLUDE_THEMES: "1"
-  TW_ONLY_ENGLISH: "true"
-  TW_EXCLUDE_TWRPAPP: "1"
-  FOX_USE_BASH: "0"
-  FOX_USE_NANO: "0"
-  FOX_USE_TAR: "0"
-  FOX_REMOVE_AAPT: "1"
-  FOX_DISABLE_APP_MANAGER: "1"
 
 jobs:
   build:
@@ -49,6 +37,10 @@ jobs:
         run: |
           sudo apt update
           sudo apt -y upgrade
+          
+          # CÀI ĐẶT CÔNG CỤ STRIP ĐỂ NÉN FILE .KO
+          sudo apt install -y binutils-aarch64-linux-gnu
+          
           git clone https://gitlab.com/OrangeFox/misc/scripts
           cd scripts
           sudo bash setup/android_build_env.sh
@@ -73,33 +65,51 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
           echo "========================================="
+          echo "🗜️ DỌN RÁC & ÉP DUNG LƯỢNG KERNEL MODULES"
+          echo "========================================="
+          
+          # Truy cập vào thư mục chứa danh sách .ko của bạn
+          cd device/xiaomi/duchamp/recovery/root/lib/modules/
+          
+          # 1. Xóa các file MediaTek Dump & Debug (Cực nặng, không dùng trong TWRP)
+          rm -f aee_aed.ko aee_hangdet.ko aee_rs.ko mrdump.ko mmprofile.ko log_store.ko
+          
+          # 2. Xóa các driver Audio, Camera, Wifi vô dụng
+          rm -f mtk-afe-external.ko mt6685-audclk.ko mt6685-core.ko
+          rm -f clk-mt6897-cam.ko clk-mt6897-vcodec.ko
+          rm -f xiaomi_wifi_gpio.ko wl2868c.ko
+          rm -f arm_dsu_pmu.ko mtk-swpm-perf-arm-pmu.ko
+          
+          # 3. VŨ KHÍ TỐI THƯỢNG: Cắt bỏ mã Debug của tất cả các file .ko còn lại
+          aarch64-linux-gnu-strip --strip-debug *.ko
+          
+          # Quay lại thư mục gốc của Android
+          cd ../../../../../../
+          
+          echo "========================================="
           echo "🚀 BƠM LỆNH ÉP GIẢM CÂN TRỰC TIẾP..."
           echo "========================================="
           
-          # 1. Kích hoạt FOX_MINI_BUILD (Chế độ gọt sạch mọi thứ của OrangeFox)
           echo "FOX_MINI_BUILD := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
           echo "FOX_EXCLUDE_THEMES := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
           echo "TW_EXCLUDE_TWRPAPP := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
           echo "TW_ONLY_ENGLISH := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
           
-          # 2. ÉP NÉN TỐI ĐA (Thuật toán LZ4 mức 9 cao nhất)
           echo "BOARD_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
           echo "BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
-          echo "LZ4_RAMDISK_COMPRESS_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
           
-          # Dọn sạch bộ nhớ đệm (tránh việc build system lấy lại file cũ 83MB)
           rm -rf out/
           
           set +e
           source build/envsetup.sh
           
-          # Chốt hạ bằng biến môi trường tuyệt đối
           export FOX_MINI_BUILD=1
           export ALLOW_MISSING_DEPENDENCIES=true
           set -e
           
           lunch twrp_duchamp-eng
           make -j1 vendorbootimage
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
