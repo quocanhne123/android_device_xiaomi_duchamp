@@ -71,24 +71,35 @@ jobs:
       - name: Build
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+          
+          echo "========================================="
+          echo "🚀 BƠM LỆNH ÉP GIẢM CÂN TRỰC TIẾP..."
+          echo "========================================="
+          
+          # 1. Kích hoạt FOX_MINI_BUILD (Chế độ gọt sạch mọi thứ của OrangeFox)
+          echo "FOX_MINI_BUILD := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
+          echo "FOX_EXCLUDE_THEMES := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
+          echo "TW_EXCLUDE_TWRPAPP := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
+          echo "TW_ONLY_ENGLISH := true" >> device/xiaomi/duchamp/twrp_duchamp.mk
+          
+          # 2. ÉP NÉN TỐI ĐA (Thuật toán LZ4 mức 9 cao nhất)
+          echo "BOARD_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
+          echo "BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
+          echo "LZ4_RAMDISK_COMPRESS_ARGS := -9" >> device/xiaomi/duchamp/BoardConfig.mk
+          
+          # Dọn sạch bộ nhớ đệm (tránh việc build system lấy lại file cũ 83MB)
           rm -rf out/
           
           set +e
           source build/envsetup.sh
+          
+          # Chốt hạ bằng biến môi trường tuyệt đối
+          export FOX_MINI_BUILD=1
+          export ALLOW_MISSING_DEPENDENCIES=true
           set -e
           
           lunch twrp_duchamp-eng
-          
-          # Truyền trực tiếp các biến vào lệnh make để đảm bảo ăn 100%
-          make -j1 vendorbootimage \
-            FOX_EXCLUDE_THEMES=1 \
-            TW_ONLY_ENGLISH=1 \
-            TW_EXCLUDE_TWRPAPP=1 \
-            FOX_USE_BASH=0 \
-            FOX_USE_NANO=0 \
-            FOX_USE_TAR=0 \
-            FOX_REMOVE_AAPT=1
-
+          make -j1 vendorbootimage
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
