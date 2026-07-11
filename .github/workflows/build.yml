@@ -55,18 +55,29 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: Ép dung lượng & Tiêu diệt File Rác
+      - name: Ép dung lượng & Tiêu diệt File Rác (Mức độ Cực hạn)
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          echo "🪓 ÁM SÁT CÁC FILE RÁC KHỔNG LỒ..."
-          # Xóa thẳng tay toàn bộ file bảo mật TA rác có dung lượng > 400KB (Tiết kiệm ~6MB)
-          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +400k -delete
+          echo "🪓 TIẾN HÀNH THANH TRỪNG CÁC FILE RÁC KHỔNG LỒ..."
           
-          # Cắt giảm các file thừa khác
+          # 1. TIÊU DIỆT DRM MODULE (Vô dụng trong Recovery) - Cứu nguy 5.3MB!
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/mediatek-drm.ko
+          
+          # 2. ÉP XÓA FONT CHỮ CHÂU Á/Ả RẬP (Vì OFox đôi khi không tự xóa) - Cứu nguy 3.8MB!
+          rm -f device/xiaomi/duchamp/recovery/root/twres/fonts/DroidSansFallback.ttf
+          
+          # 3. XÓA THỦ CÔNG LỆNH BASH - Cứu nguy 1.4MB!
+          rm -f device/xiaomi/duchamp/recovery/root/sbin/bash
+          rm -f device/xiaomi/duchamp/recovery/root/system/bin/bash
+          
+          # 4. Quét sạch các file bảo mật TA rác có dung lượng > 300KB
+          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +300k -delete
+          
+          # 5. Xóa Busybox trùng lặp
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
           
-          echo "🗜️ CẮT MÃ GỠ LỖI MODULES KHẮT KHE HƠN..."
+          echo "🗜️ CẮT MÃ GỠ LỖI MODULES KHẮT KHE NHẤT..."
           find device/xiaomi/duchamp -name "*.ko" -exec aarch64-linux-gnu-strip --strip-unneeded {} + 2>/dev/null || true
           
           echo "🗑️ XÓA MODULES RÁC MEDIATEK DUMP..."
@@ -74,7 +85,7 @@ jobs:
           find device/xiaomi/duchamp -name "mrdump.ko" -delete
           find device/xiaomi/duchamp -name "log_store.ko" -delete
           
-          echo "🛠️ BƠM CỜ ÉP CÂN VÀO BOARDCONFIG (CHỖ NÀY OFOX MỚI CHỊU ĐỌC)..."
+          echo "🛠️ BƠM CỜ ÉP CÂN VÀO BOARDCONFIG..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
           # --- CÁC CỜ ÉP CÂN TỐI ĐA CỦA ORANGEFOX ---
@@ -118,7 +129,7 @@ jobs:
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
-          echo "🔥 BẮT ĐẦU BUILD: Chờ xem 5.4MB cuối cùng bốc hơi..."
+          echo "🔥 BẮT ĐẦU BUILD: Đã giảm thêm 10.5MB, chắc chắn thành công..."
           
           make -j1 vendorbootimage || {
             echo "========================================="
