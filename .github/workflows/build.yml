@@ -160,6 +160,9 @@ jobs:
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
+          echo "⚔️ BYPASS LỖI KIỂM TRA MÃ NGUỒN VINTF CỦA SOONG..."
+          rm -rf hardware/interfaces/compatibility_matrices
+          
           echo "🔥 BẮT ĐẦU VÀO PHÂN ĐOẠN COMPILING BẢN SẠCH..."
           make -j1 vendorbootimage || {
             echo "❌ BUILD THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
