@@ -59,17 +59,17 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          echo "📥 Tải công cụ giải mã Boot..."
+          echo "Tải công cụ giải mã Boot..."
           wget https://github.com/huskydg/magiskboot-binary/releases/download/v26.4/magiskboot_x86_64 -O magiskboot
           chmod +x magiskboot
           
           if [ -f device/xiaomi/duchamp/stock_vendor_boot.img ]; then
-            echo "🔥 Phát hiện file gốc! Tiến hành rã xác..."
+            echo " Phát hiện file gốc! Tiến hành rã xác..."
             ./magiskboot unpack device/xiaomi/duchamp/stock_vendor_boot.img
             
             # 1. Cập nhật file cấu hình phần cứng DTB mới nhất từ ROM máy
             if [ -f dtb ]; then
-              echo "✅ Đang cập nhật DTB mới nhất..."
+              echo " Đang cập nhật DTB mới nhất..."
               cp -f dtb device/xiaomi/duchamp/prebuilt/dtb.img
             fi
             
@@ -78,11 +78,11 @@ jobs:
             cpio -id < ../vendor_ramdisk.cpio 2>/dev/null || true
             cd ..
             
-            echo "✅ 1. Thay thế Module .ko trùng khớp với Kernel máy..."
+            echo " Thay thế Module .ko trùng khớp với Kernel máy..."
             cp -f stock_ramdisk/lib/modules/*.ko device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
             cp -f stock_ramdisk/vendor/lib/modules/*.ko device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
             
-            echo "✅ 2. Quét tự động và đồng bộ hóa toàn bộ thư viện (.so), thực thi (bin) cũ sang mới..."
+            echo " Quét tự động và đồng bộ hóa toàn bộ thư viện (.so), thực thi (bin) cũ sang mới..."
             cd device/xiaomi/duchamp/recovery/root
             find . -type f | while read file; do
                 # Bỏ qua các file cấu hình khởi động riêng của Recovery để tránh mất thiết lập OrangeFox
@@ -97,24 +97,24 @@ jobs:
             done
             cd ../../../..
             
-            echo "✅ 3. Đồng bộ hóa cấu trúc file Fstab mới từ ROM hiện tại..."
+            echo "Đồng bộ hóa cấu trúc file Fstab mới từ ROM hiện tại..."
             find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/first_stage_ramdisk/ \; 2>/dev/null || true
             find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/system/etc/ \; 2>/dev/null || true
             
             rm -rf stock_ramdisk vendor_ramdisk.cpio dtb kernel ramdisk.cpio 2>/dev/null || true
           else
-            echo "❌ LỖI KHÔNG TÌM THẤY FILE stock_vendor_boot.img TRÊN GITHUB!"
+            echo "LỖI KHÔNG TÌM THẤY FILE stock_vendor_boot.img TRÊN GITHUB!"
             exit 1
           fi
           
-          echo "🗜️ HÚT MỠ KHỬ DEBUG TRÊN CÁC MODULE MỚI..."
+          echo "HÚT MỠ KHỬ DEBUG TRÊN CÁC MODULE MỚI..."
           find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \; 2>/dev/null || true
           
-          echo "🧹 XÓA CÁC FILE THỪA ĐỂ TRÁNH TRÀN DUNG LƯỢNG MÁY..."
+          echo "XÓA CÁC FILE THỪA ĐỂ TRÁNH TRÀN DUNG LƯỢNG MÁY..."
           find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +500k -delete
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
           
-          echo "🛠️ BƠM CỜ CẤU HÌNH TỐI ƯU HÓA HỆ THỐNG VÀO BOARDCONFIG..."
+          echo "BƠM CỜ CẤU HÌNH TỐI ƯU HÓA HỆ THỐNG VÀO BOARDCONFIG..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
           # --- CẤU HÌNH TIẾT KIỆM DUNG LƯỢNG AN TOÀN ---
@@ -148,9 +148,9 @@ jobs:
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
-          echo "🔥 BẮT ĐẦU VÀO PHÂN ĐOẠN COMPILING BẢN SẠCH..."
+          echo " BẮT ĐẦU VÀO PHÂN ĐOẠN COMPILING BẢN SẠCH..."
           make -j1 vendorbootimage || {
-            echo "❌ BUILD THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
+            echo "BUILD THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
             find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
             exit 1
           }
