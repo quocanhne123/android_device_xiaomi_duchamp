@@ -55,7 +55,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: 🔄 Phẫu thuật nâng cấp & Siêu tối ưu hóa dung lượng
+      - name: 🔄 Phẫu thuật nâng cấp chuẩn xác (Không ôm đồm file rác)
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
@@ -78,22 +78,14 @@ jobs:
             cpio -id < ../vendor_ramdisk.cpio 2>/dev/null || true
             cd ..
             
+            echo "✅ 1. Chỉ copy các Module .ko gốc để nhận diện phần cứng..."
             cp -f stock_ramdisk/lib/modules/*.ko device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
             
-            if [ -d device/xiaomi/duchamp/recovery/root/vendor/lib64 ]; then
-              cp -f stock_ramdisk/vendor/lib64/*.so device/xiaomi/duchamp/recovery/root/vendor/lib64/ 2>/dev/null || true
-            fi
-            if [ -d device/xiaomi/duchamp/recovery/root/lib64 ]; then
-              cp -f stock_ramdisk/lib64/*.so device/xiaomi/duchamp/recovery/root/lib64/ 2>/dev/null || true
-            fi
-
-            if [ -d device/xiaomi/duchamp/recovery/root/vendor/bin ]; then
-              cp -f stock_ramdisk/vendor/bin/* device/xiaomi/duchamp/recovery/root/vendor/bin/ 2>/dev/null || true
-            fi
-            
+            echo "✅ 2. Đồng bộ hóa file Fstab cấu hình phân vùng mới từ ROM gốc..."
             find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/first_stage_ramdisk/ \; 2>/dev/null || true
             find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/system/etc/ \; 2>/dev/null || true
             
+            echo "✅ 3. Đồng bộ chuẩn giao tiếp VINTF & UEVENTD của HyperOS..."
             if [ -d stock_ramdisk/vendor/etc/vintf ]; then
               rm -rf device/xiaomi/duchamp/recovery/root/vendor/etc/vintf
               cp -r stock_ramdisk/vendor/etc/vintf device/xiaomi/duchamp/recovery/root/vendor/etc/
@@ -111,22 +103,18 @@ jobs:
             exit 1
           fi
 
-          echo "🧹 THẢI ĐỘC DRIVER: XÓA CÁC MODULE KERNEL DƯ THỪA TRONG RECOVERY..."
+          echo "🧹 XÓA CÁC MODULE DRIVER KHÔNG LIÊN QUAN ĐỂ GIẢM SIZE AN TOÀN..."
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*audio*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wlan*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*bt*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*camera*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*gps*.ko
-          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +500k -delete 2>/dev/null || true
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
-
-          echo "🗜️ ÉP CÂN DIỆN RỘNG: GỌT SẠCH MÃ THỪA TRÊN TOÀN BỘ FILE PREBUILT (.KO, .SO, BIN)..."
-          find device/xiaomi/duchamp/recovery/root/ -type f \( -name "*.ko" -o -name "*.so" -o -path "*/bin/*" \) -exec aarch64-linux-gnu-strip --strip-unneeded {} \; 2>/dev/null || true
           
-          echo "🛠️ BƠM CỜ SIÊU ÉP SIZE VÀO BOARDCONFIG..."
+          echo "🛠 Chèn cờ cấu hình OrangeFox chuẩn..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
-          # --- CẤU HÌNH TỐI ƯU HÓA HỆ THỐNG PHÂN GIẢI THẤP ---
+          # --- CẤU HÌNH TỐI ƯU HÓA HỆ THỐNG AN TOÀN ---
           FOX_DRASTIC_SIZE_REDUCTION := true
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
@@ -137,19 +125,6 @@ jobs:
           FOX_EXCLUDE_TAR := true
           FOX_EXCLUDE_AAPT := true
           
-          # Cắt bỏ các thành phần nặng ký mới phát hiện
-          FOX_EXCLUDE_BASH := true
-          TW_EXCLUDE_TZDATA := true
-          TW_EXCLUDE_APEX := true
-          
-          # Triệt tiêu các Font chữ thừa
-          FOX_EXCLUDE_FONTS := true
-          FOX_DELETE_ARABIC_FONT := true
-          FOX_DELETE_HINDI_FONT := true
-          FOX_DELETE_THAI_FONT := true
-          FOX_DELETE_UKRAINIAN_FONT := true
-          
-          # Nén ở mức cao nhất
           BOARD_RAMDISK_COMPRESSION_ARGS := -9
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
           
@@ -171,12 +146,15 @@ jobs:
           echo "⚔️ BYPASS LỖI SOONG VINTF CỦA ANDROID..."
           rm -rf hardware/interfaces/compatibility_matrices
           
-          echo "✂️ HACK DIỆT TẬN GỐC FONT CHỮ TRÊN TOÀN BỘ SOURCE TREE..."
-          find . -name "*.ttf" -exec sh -c '> "{}"' \;
+          echo "🗜️ DÙNG TOOL CHÍNH CHỦ GOOGLE ĐỂ LỌC FILE .KO (AN TOÀN 100% KHÔNG LỖI FILE)..."
+          STRIP_TOOL=$(find prebuilts/clang/host/ -name llvm-strip | head -n 1)
+          if [ -n "$STRIP_TOOL" ]; then
+            find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec $STRIP_TOOL --strip-debug {} \;
+          fi
           
-          echo "🔥 BẮT ĐẦU VÀO PHÂN ĐOẠN COMPILING BẢN SIÊU MỎNG NHẸ..."
+          echo "🔥 KHỞI CHẠY BIÊN DỊCH BẢN SẠCH CHUẨN ĐÚNG NGHĨA..."
           make -j1 vendorbootimage || {
-            echo "❌ BUILD THẤT BẠI! ĐANG THỐNG KÊ CÁC FILE NẶNG NHẤT..."
+            echo "❌ BUILD THẤT BẠI! THỐNG KÊ CÁC FILE..."
             find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
             exit 1
           }
@@ -184,7 +162,7 @@ jobs:
       - name: Upload File Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp-SuperOptimized
+          name: OrangeFox-duchamp-PureFixed
           path: |
             OrangeFox/fox_12.1/out/target/product/duchamp/*.img
             OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
