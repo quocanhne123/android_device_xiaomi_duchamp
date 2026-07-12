@@ -55,63 +55,47 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: Ép dung lượng & Tiêu diệt File Rác (Mức độ Cực hạn)
+      - name: Ép dung lượng thông minh & Sửa lỗi Bootloop
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          echo "🪓 TIẾN HÀNH THANH TRỪNG CÁC FILE RÁC KHỔNG LỒ..."
+          echo "🗜️ TIẾN HÀNH DÙNG CÔNG CỤ STRIP ĐỂ HÚT MỠ FILE 14MB..."
+          # Ép xung công cụ strip loại bỏ mã debug của toàn bộ file hệ thống .ko (Giảm ngay ~15MB tổng cộng)
+          # Giữ nguyên các file ko, không xóa để tránh Kernel Panic gây bootloop
+          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \;
           
-          # 1. TIÊU DIỆT DRM MODULE (Vô dụng trong Recovery) - Cứu nguy 5.3MB!
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/mediatek-drm.ko
+          echo "🧹 DỌN DẸP FILE RÁC KHÔNG ẢNH HƯỞNG ĐẾN HỆ THỐNG..."
+          # Xóa các file bảo mật TA thực sự dư thừa có dung lượng quá lớn
+          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +500k -delete
           
-          # 2. ÉP XÓA FONT CHỮ CHÂU Á/Ả RẬP (Vì OFox đôi khi không tự xóa) - Cứu nguy 3.8MB!
-          rm -f device/xiaomi/duchamp/recovery/root/twres/fonts/DroidSansFallback.ttf
-          
-          # 3. XÓA THỦ CÔNG LỆNH BASH - Cứu nguy 1.4MB!
-          rm -f device/xiaomi/duchamp/recovery/root/sbin/bash
-          rm -f device/xiaomi/duchamp/recovery/root/system/bin/bash
-          
-          # 4. Quét sạch các file bảo mật TA rác có dung lượng > 300KB
-          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +300k -delete
-          
-          # 5. Xóa Busybox trùng lặp
+          # Xóa Busybox trùng lặp để tránh xung đột lệnh
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
           
-          echo "🗜️ CẮT MÃ GỠ LỖI MODULES KHẮT KHE NHẤT..."
-          find device/xiaomi/duchamp -name "*.ko" -exec aarch64-linux-gnu-strip --strip-unneeded {} + 2>/dev/null || true
-          
-          echo "🗑️ XÓA MODULES RÁC MEDIATEK DUMP..."
-          find device/xiaomi/duchamp -name "aee_aed.ko" -delete
-          find device/xiaomi/duchamp -name "mrdump.ko" -delete
-          find device/xiaomi/duchamp -name "log_store.ko" -delete
-          
-          echo "🛠️ BƠM CỜ ÉP CÂN VÀO BOARDCONFIG..."
+          echo "🛠️ BƠM CỜ CẤU HÌNH TỐI ƯU VÀO BOARDCONFIG..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
-          # --- CÁC CỜ ÉP CÂN TỐI ĐA CỦA ORANGEFOX ---
+          # --- CÁC CỜ TIẾT KIỆM DUNG LƯỢNG AN TOÀN ---
           FOX_DRASTIC_SIZE_REDUCTION := true
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
           TW_EXCLUDE_TWRPAPP := true
           TW_ONLY_ENGLISH := true
           FOX_ENABLE_APP_MANAGER := false
-          FOX_EXCLUDE_BASH := true
           FOX_EXCLUDE_NANO_EDITOR := true
           FOX_EXCLUDE_TAR := true
-          FOX_EXCLUDE_ARABIC_FONT := true
           FOX_EXCLUDE_AAPT := true
           
-          # Nén ramdisk mức cao nhất
+          # Nén ramdisk mức cao để giữ dung lượng trong vạch an toàn 64MB
           BOARD_RAMDISK_COMPRESSION_ARGS := -9
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
           
-          # Hỗ trợ Decryption (Giải mã bộ nhớ FBE)
+          # Hỗ trợ cấu hình bộ nhớ khi khởi động recovery
           TW_INCLUDE_CRYPTO := true
           TW_INCLUDE_CRYPTO_FBE := true
           TW_INCLUDE_FBE_METADATA_DECRYPT := true
           BOARD_USES_METADATA_PARTITION := true
           
-          # Chống lag
+          # Tối ưu hiển thị màn hình màn hình
           TW_MAX_BRIGHTNESS := 2047
           TW_DEFAULT_BRIGHTNESS := 1200
           TW_Y_OFFSET := 80
@@ -129,27 +113,20 @@ jobs:
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
-          echo "🔥 BẮT ĐẦU BUILD: Đã giảm thêm 10.5MB, chắc chắn thành công..."
+          echo "🔥 BẮT ĐẦU BUILD BẢN FIX BOOTLOOP..."
           
           make -j1 vendorbootimage || {
             echo "========================================="
-            echo "❌ BUILD VẪN THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
+            echo "❌ BUILD THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
             echo "========================================="
-            
-            echo "🗂️ TOP 20 FILE NẶNG NHẤT BỊ NHÉT VÀO RECOVERY:"
             find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
-            
-            echo ""
-            echo "🗂️ TOP 20 FILE NẶNG NHẤT TRONG KHO MÃ NGUỒN (DEVICE TREE):"
-            find device/xiaomi/duchamp/ -type f -exec du -h {} + | sort -rh | head -n 20
-            
             exit 1
           }
 
       - name: Upload File Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp-Perfect
+          name: OrangeFox-duchamp-Fixed
           path: |
             OrangeFox/fox_12.1/out/target/product/duchamp/*.img
             OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
