@@ -31,16 +31,16 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      - name: Installing dependencies
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt -y upgrade
-          sudo apt install -y binutils-aarch64-linux-gnu
+          sudo apt install -y binutils-aarch64-linux-gnu cpio wget
           git clone https://gitlab.com/OrangeFox/misc/scripts
           cd scripts
           sudo bash setup/android_build_env.sh
 
-      - name: Downloading Source OrangeFox 12.1
+      - name: Download OrangeFox source
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
           cd ${GITHUB_WORKSPACE}/OrangeFox
@@ -50,31 +50,74 @@ jobs:
           ./orangefox_sync.sh --branch 12.1 --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           rm -rf ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1/.repo
 
-      - name: Tải Device Tree của bạn
+      - name: Sync device tree
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: Ép dung lượng thông minh & Sửa lỗi Bootloop
+      - name: Fix error
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          echo "🗜️ TIẾN HÀNH DÙNG CÔNG CỤ STRIP ĐỂ HÚT MỠ FILE 14MB..."
-          # Ép xung công cụ strip loại bỏ mã debug của toàn bộ file hệ thống .ko (Giảm ngay ~15MB tổng cộng)
-          # Giữ nguyên các file ko, không xóa để tránh Kernel Panic gây bootloop
-          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \;
+          echo "📥 Tải công cụ giải mã Boot..."
+          wget https://github.com/huskydg/magiskboot-binary/releases/download/v26.4/magiskboot_x86_64 -O magiskboot
+          chmod +x magiskboot
           
-          echo "🧹 DỌN DẸP FILE RÁC KHÔNG ẢNH HƯỞNG ĐẾN HỆ THỐNG..."
-          # Xóa các file bảo mật TA thực sự dư thừa có dung lượng quá lớn
+          if [ -f device/xiaomi/duchamp/stock_vendor_boot.img ]; then
+            echo "🔥 Phát hiện file gốc! Tiến hành rã xác..."
+            ./magiskboot unpack device/xiaomi/duchamp/stock_vendor_boot.img
+            
+            # 1. Cập nhật file cấu hình phần cứng DTB mới nhất từ ROM máy
+            if [ -f dtb ]; then
+              echo "✅ Đang cập nhật DTB mới nhất..."
+              cp -f dtb device/xiaomi/duchamp/prebuilt/dtb.img
+            fi
+            
+            # 2. Xả nén Ramdisk để lấy toàn bộ linh kiện gốc mới nhất
+            mkdir stock_ramdisk && cd stock_ramdisk
+            cpio -id < ../vendor_ramdisk.cpio 2>/dev/null || true
+            cd ..
+            
+            echo "✅ 1. Thay thế Module .ko trùng khớp với Kernel máy..."
+            cp -f stock_ramdisk/lib/modules/*.ko device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
+            cp -f stock_ramdisk/vendor/lib/modules/*.ko device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
+            
+            echo "✅ 2. Quét tự động và đồng bộ hóa toàn bộ thư viện (.so), thực thi (bin) cũ sang mới..."
+            cd device/xiaomi/duchamp/recovery/root
+            find . -type f | while read file; do
+                # Bỏ qua các file cấu hình khởi động riêng của Recovery để tránh mất thiết lập OrangeFox
+                if [[ "$file" == *".rc" || "$file" == *"twrp.flags" || "$file" == *"recovery.fstab" ]]; then
+                    continue
+                fi
+                
+                # Nếu file cũ này tồn tại bản mới trong ROM gốc, thực hiện đè bản mới vào ngay
+                if [ -f "../../../../stock_ramdisk/$file" ]; then
+                    cp -f "../../../../stock_ramdisk/$file" "$file"
+                fi
+            done
+            cd ../../../..
+            
+            echo "✅ 3. Đồng bộ hóa cấu trúc file Fstab mới từ ROM hiện tại..."
+            find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/first_stage_ramdisk/ \; 2>/dev/null || true
+            find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/system/etc/ \; 2>/dev/null || true
+            
+            rm -rf stock_ramdisk vendor_ramdisk.cpio dtb kernel ramdisk.cpio 2>/dev/null || true
+          else
+            echo "❌ LỖI KHÔNG TÌM THẤY FILE stock_vendor_boot.img TRÊN GITHUB!"
+            exit 1
+          fi
+          
+          echo "🗜️ HÚT MỠ KHỬ DEBUG TRÊN CÁC MODULE MỚI..."
+          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \; 2>/dev/null || true
+          
+          echo "🧹 XÓA CÁC FILE THỪA ĐỂ TRÁNH TRÀN DUNG LƯỢNG MÁY..."
           find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +500k -delete
-          
-          # Xóa Busybox trùng lặp để tránh xung đột lệnh
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
           
-          echo "🛠️ BƠM CỜ CẤU HÌNH TỐI ƯU VÀO BOARDCONFIG..."
+          echo "🛠️ BƠM CỜ CẤU HÌNH TỐI ƯU HÓA HỆ THỐNG VÀO BOARDCONFIG..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
-          # --- CÁC CỜ TIẾT KIỆM DUNG LƯỢNG AN TOÀN ---
+          # --- CẤU HÌNH TIẾT KIỆM DUNG LƯỢNG AN TOÀN ---
           FOX_DRASTIC_SIZE_REDUCTION := true
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
@@ -85,40 +128,29 @@ jobs:
           FOX_EXCLUDE_TAR := true
           FOX_EXCLUDE_AAPT := true
           
-          # Nén ramdisk mức cao để giữ dung lượng trong vạch an toàn 64MB
+          # Ép thuật toán nén ramdisk mức cao nhất để nhét vừa vặn vạch 64MB
           BOARD_RAMDISK_COMPRESSION_ARGS := -9
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
           
-          # Hỗ trợ cấu hình bộ nhớ khi khởi động recovery
+          # Tối ưu hóa tính năng giải mã bộ nhớ HyperOS
           TW_INCLUDE_CRYPTO := true
           TW_INCLUDE_CRYPTO_FBE := true
           TW_INCLUDE_FBE_METADATA_DECRYPT := true
-          BOARD_USES_METADATA_PARTITION := true
-          
-          # Tối ưu hiển thị màn hình màn hình
-          TW_MAX_BRIGHTNESS := 2047
-          TW_DEFAULT_BRIGHTNESS := 1200
-          TW_Y_OFFSET := 80
-          TW_HAPTICS_OEM_VIBRATOR := true
+          BOARD_USES_METADATA_ENCRYPTION := true
           EOF
 
       - name: Build OrangeFox
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-          
           set +e 
-          
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
-          echo "🔥 BẮT ĐẦU BUILD BẢN FIX BOOTLOOP..."
-          
+          echo "🔥 BẮT ĐẦU VÀO PHÂN ĐOẠN COMPILING BẢN SẠCH..."
           make -j1 vendorbootimage || {
-            echo "========================================="
-            echo "❌ BUILD THẤT BẠI"
-            echo "========================================="
+            echo "❌ BUILD THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
             find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
             exit 1
           }
@@ -126,7 +158,7 @@ jobs:
       - name: Upload File Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp-Fixed
+          name: OrangeFox-duchamp-UltimateFixed
           path: |
             OrangeFox/fox_12.1/out/target/product/duchamp/*.img
             OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
