@@ -55,11 +55,11 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: 🔄 Phẫu thuật nâng cấp TOÀN DIỆN (Bao gồm VINTF & Ueventd)
+      - name: 🔄 Phẫu thuật nâng cấp & Lọc máu ép cân
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
-          echo "📥 Tải công cụ giải mã Boot từ Magisk chính thức (Chống chết link)..."
+          echo "📥 Tải công cụ giải mã Boot từ Magisk..."
           wget https://github.com/topjohnwu/Magisk/releases/download/v27.0/Magisk-v27.0.apk -O magisk.zip
           unzip magisk.zip lib/x86_64/libmagiskboot.so
           mv lib/x86_64/libmagiskboot.so magiskboot
@@ -67,24 +67,19 @@ jobs:
           rm -rf magisk.zip lib
           
           if [ -f device/xiaomi/duchamp/stock_vendor_boot.img ]; then
-            echo "🔥 Phát hiện file gốc! Tiến hành rã xác..."
+            echo "🔥 Đang rã xác file gốc..."
             ./magiskboot unpack device/xiaomi/duchamp/stock_vendor_boot.img
             
-            # 1. Cập nhật file cấu hình phần cứng DTB mới nhất
             if [ -f dtb ]; then
-              echo "✅ Đang cập nhật DTB mới nhất..."
               cp -f dtb device/xiaomi/duchamp/prebuilt/dtb.img
             fi
             
-            # 2. Xả nén Ramdisk để lấy toàn bộ linh kiện mới
             mkdir stock_ramdisk && cd stock_ramdisk
             cpio -id < ../vendor_ramdisk.cpio 2>/dev/null || true
             cd ..
             
-            echo "✅ 1. Thay thế Module .ko trùng khớp với Kernel máy..."
             cp -f stock_ramdisk/lib/modules/*.ko device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
             
-            echo "✅ 2. Cập nhật đè toàn bộ file thư viện .so..."
             if [ -d device/xiaomi/duchamp/recovery/root/vendor/lib64 ]; then
               cp -f stock_ramdisk/vendor/lib64/*.so device/xiaomi/duchamp/recovery/root/vendor/lib64/ 2>/dev/null || true
             fi
@@ -92,16 +87,13 @@ jobs:
               cp -f stock_ramdisk/lib64/*.so device/xiaomi/duchamp/recovery/root/lib64/ 2>/dev/null || true
             fi
 
-            echo "✅ 3. Thay thế các file thực thi phần cứng (vendor/bin)..."
             if [ -d device/xiaomi/duchamp/recovery/root/vendor/bin ]; then
               cp -f stock_ramdisk/vendor/bin/* device/xiaomi/duchamp/recovery/root/vendor/bin/ 2>/dev/null || true
             fi
             
-            echo "✅ 4. Đồng bộ hóa file Fstab mới từ ROM hiện tại..."
             find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/first_stage_ramdisk/ \; 2>/dev/null || true
             find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/system/etc/ \; 2>/dev/null || true
             
-            echo "✅ 5. ĐỒNG BỘ CẤU HÌNH VINTF & UEVENTD MỚI NHẤT TRÊN ROM..."
             if [ -d stock_ramdisk/vendor/etc/vintf ]; then
               rm -rf device/xiaomi/duchamp/recovery/root/vendor/etc/vintf
               cp -r stock_ramdisk/vendor/etc/vintf device/xiaomi/duchamp/recovery/root/vendor/etc/
@@ -115,21 +107,26 @@ jobs:
             
             rm -rf stock_ramdisk vendor_ramdisk.cpio dtb kernel ramdisk.cpio 2>/dev/null || true
           else
-            echo "❌ LỖI KHÔNG TÌM THẤY FILE stock_vendor_boot.img TRÊN GITHUB!"
+            echo "❌ LỖI KHÔNG TÌM THẤY FILE stock_vendor_boot.img"
             exit 1
           fi
+
+          echo "✂️ XÓA CÁC DRIVER KHÔNG DÙNG TRONG RECOVERY ĐỂ ÉP CÂN..."
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*audio*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wlan*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*bt*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*camera*.ko
           
-          echo "🗜️ HÚT MỠ KHỬ DEBUG TRÊN CÁC MODULE MỚI..."
-          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \; 2>/dev/null || true
+          echo "🗜️ ÉP CÂN BẬC CAO: LỌC SẠCH MÃ GỠ LỖI CỦA MODULE UFS..."
+          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-unneeded {} \; 2>/dev/null || true
           
-          echo "🧹 XÓA CÁC FILE THỪA ĐỂ TRÁNH TRÀN DUNG LƯỢNG MÁY..."
-          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +500k -delete
+          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +500k -delete 2>/dev/null || true
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
           
-          echo "🛠 Honor BoardConfig cờ chống bootloop..."
+          echo "🛠 Chèn cờ ép size tối đa vào BoardConfig..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
-          # --- CẤU HÌNH TỐI ƯU HÓA HỆ THỐNG CHỐNG BOOTLOOP ---
+          # --- CẤU HÌNH TỐI ƯU HÓA ÉP KÍCH THƯỚC CHỐNG TRÀN BOOT ---
           FOX_DRASTIC_SIZE_REDUCTION := true
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
@@ -140,11 +137,16 @@ jobs:
           FOX_EXCLUDE_TAR := true
           FOX_EXCLUDE_AAPT := true
           
-          # Nén ramdisk mức tối đa để không vượt 64MB
+          # Cắt phăng các Font chữ nặng hàng MB
+          FOX_EXCLUDE_FONTS := true
+          FOX_DELETE_ARABIC_FONT := true
+          FOX_DELETE_HINDI_FONT := true
+          FOX_DELETE_THAI_FONT := true
+          FOX_DELETE_UKRAINIAN_FONT := true
+          
           BOARD_RAMDISK_COMPRESSION_ARGS := -9
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
           
-          # Giữ nguyên cấu hình giải mã bộ nhớ gốc
           TW_INCLUDE_CRYPTO := true
           TW_INCLUDE_CRYPTO_FBE := true
           TW_INCLUDE_FBE_METADATA_DECRYPT := true
@@ -160,12 +162,12 @@ jobs:
           export FOX_MINI_BUILD=1
           lunch twrp_duchamp-eng
           
-          echo "⚔️ BYPASS LỖI KIỂM TRA MÃ NGUỒN VINTF CỦA SOONG..."
+          echo "⚔️ BYPASS LỖI SOONG VINTF..."
           rm -rf hardware/interfaces/compatibility_matrices
           
-          echo "🔥 BẮT ĐẦU VÀO PHÂN ĐOẠN COMPILING BẢN SẠCH..."
+          echo "🔥 COMPILING KẾT QUẢ CUỐI CÙNG..."
           make -j1 vendorbootimage || {
-            echo "❌ BUILD THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
+            echo "❌ BUILD THẤT BẠI! KIỂM TRA DUNG LƯỢNG..."
             find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
             exit 1
           }
@@ -173,7 +175,7 @@ jobs:
       - name: Upload File Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp-UltimateFixed
+          name: OrangeFox-duchamp-PerfectSize
           path: |
             OrangeFox/fox_12.1/out/target/product/duchamp/*.img
             OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
