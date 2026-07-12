@@ -31,7 +31,7 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      - name: Cài đặt môi trường & Công cụ ép cân
+      - name: Installing dependencies
         run: |
           sudo apt update
           sudo apt -y upgrade
@@ -40,7 +40,7 @@ jobs:
           cd scripts
           sudo bash setup/android_build_env.sh
 
-      - name: Tải Source OrangeFox 12.1
+      - name: Downloading Source OrangeFox 12.1
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
           cd ${GITHUB_WORKSPACE}/OrangeFox
@@ -102,7 +102,7 @@ jobs:
           TW_HAPTICS_OEM_VIBRATOR := true
           EOF
 
-      - name: Build OrangeFox với -j1 & Bắt Lỗi
+      - name: Build OrangeFox
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
@@ -117,7 +117,7 @@ jobs:
           
           make -j1 vendorbootimage || {
             echo "========================================="
-            echo "❌ BUILD THẤT BẠI! ĐANG TÌM TẬN TAY THỦ PHẠM..."
+            echo "❌ BUILD THẤT BẠI"
             echo "========================================="
             find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
             exit 1
