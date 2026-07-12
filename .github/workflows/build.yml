@@ -31,13 +31,14 @@ jobs:
           docker-images: true
           swap-storage: false
 
-      - name: 🛡️ Bơm 10GB RAM Ảo (Swap) Chống Sập Runner
+      - name: 🛡️ Bơm 8GB RAM Ảo (Swap) Chống Sập Runner bằng lệnh dd
         run: |
-          sudo fallocate -l 10G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          echo "Dung lượng RAM & Swap hiện tại:"
+          echo "Bắt đầu tạo Swap file vật lý (sẽ mất khoảng 15-20 giây)..."
+          sudo dd if=/dev/zero of=/swapfile1 bs=1M count=8192 status=progress
+          sudo chmod 600 /swapfile1
+          sudo mkswap /swapfile1
+          sudo swapon /swapfile1
+          echo "✅ Đã bơm Swap thành công! Dung lượng RAM & Swap hiện tại:"
           free -h
 
       - name: Cài đặt môi trường & Công cụ
@@ -64,7 +65,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: Fix bugs
+      - name: 🔄 Phẫu thuật nâng cấp: Trích xuất Code Zin từ HyperOS
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
