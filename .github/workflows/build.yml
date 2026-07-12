@@ -29,7 +29,16 @@ jobs:
           haskell: true
           large-packages: true
           docker-images: true
-          swap-storage: true
+          swap-storage: false
+
+      - name: 🛡️ Bơm 10GB RAM Ảo (Swap) Chống Sập Runner
+        run: |
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "Dung lượng RAM & Swap hiện tại:"
+          free -h
 
       - name: Cài đặt môi trường & Công cụ
         run: |
@@ -55,7 +64,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: Phẫu thuật nâng cấp Trích xuất Code Zin từ HyperOS
+      - name: 🔄 Phẫu thuật nâng cấp: Trích xuất Code Zin từ HyperOS
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
@@ -95,15 +104,12 @@ jobs:
               cp -f stock_ramdisk/ueventd.rc device/xiaomi/duchamp/recovery/root/ueventd.rc
             fi
             
-            echo "💎 3. CỰC KỲ QUAN TRỌNG: COPY BOOTCTRL & MTK_PLPATH_UTILS TỪ ROM GỐC..."
+            echo "💎 3. COPY BOOTCTRL & MTK_PLPATH_UTILS TỪ ROM GỐC..."
             mkdir -p device/xiaomi/duchamp/recovery/root/vendor/lib64/hw/
             mkdir -p device/xiaomi/duchamp/recovery/root/vendor/bin/
             
-            # Copy bootctrl
             cp -f stock_ramdisk/vendor/lib64/hw/android.hardware.boot*.so device/xiaomi/duchamp/recovery/root/vendor/lib64/hw/ 2>/dev/null || true
             cp -f stock_ramdisk/vendor/lib64/hw/bootctrl*.so device/xiaomi/duchamp/recovery/root/vendor/lib64/hw/ 2>/dev/null || true
-            
-            # Copy mtk_plpath_utils (bin & lib)
             cp -f stock_ramdisk/vendor/bin/mtk_plpath_utils device/xiaomi/duchamp/recovery/root/vendor/bin/ 2>/dev/null || true
             cp -f stock_ramdisk/vendor/lib64/libmtk_plpath_utils.so device/xiaomi/duchamp/recovery/root/vendor/lib64/ 2>/dev/null || true
             
@@ -124,7 +130,6 @@ jobs:
           echo "🛠 Chèn cờ cấu hình OrangeFox chuẩn..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
-          # --- CẤU HÌNH TỐI ƯU HÓA HỆ THỐNG AN TOÀN ---
           FOX_DRASTIC_SIZE_REDUCTION := true
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
@@ -144,13 +149,18 @@ jobs:
           BOARD_USES_METADATA_ENCRYPTION := true
           EOF
 
-      - name: Build OrangeFox với -j1
+      - name: Build OrangeFox (An Toàn - Chống OOM)
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           set +e 
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_MINI_BUILD=1
+          
+          # TRÓI CHÂN TIẾU TRÌNH NGỐN RAM
+          export _JAVA_OPTIONS="-Xmx4g"
+          export NINJA_ARGS="-j1 -l1"
+          
           lunch twrp_duchamp-eng
           
           echo "⚔️ BYPASS LỖI SOONG VINTF CỦA ANDROID..."
