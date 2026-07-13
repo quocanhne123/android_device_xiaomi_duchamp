@@ -64,7 +64,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: 🔄 HyperOS
+      - name: 🔄 Phẫu thuật nâng cấp: Trích xuất Code Zin từ HyperOS
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
@@ -112,7 +112,7 @@ jobs:
             rm -rf stock_ramdisk vendor_ramdisk.cpio dtb kernel ramdisk.cpio 2>/dev/null || true
           fi
 
-          echo "🧹 THANH TRỪNG CỰC HẠN CÁC FILE RÁC KHỎI RAMDISK..."
+          echo "🧹 XÓA BỎ DRIVER ĐỒ HỌA & CẢM BIẾN THỪA NẶNG NỀ..."
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/mitee
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*audio*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wlan*.ko
@@ -124,12 +124,20 @@ jobs:
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*vibrator*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*fp*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*goodix*.ko
+          
+          # Đợt quét bổ sung driver đồ họa/nhiệt độ nặng ký
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*mali*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*gpu*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*thermal*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*charger*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*tui*.ko
+          
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
           
-          echo "🛠 Chèn cờ cấu hình OrangeFox ép cân..."
+          echo "🛠 Chèn cờ cấu hình OrangeFox siêu nén và loại bỏ múi giờ thừa..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
-          # --- CẤU HÌNH TỐI ƯU KÍCH THƯỚC CHUYÊN SÂU ---
+          # --- CẤU HÌNH TỐI ƯU KÍCH THƯỚC TRIỆT ĐỂ ---
           FOX_DRASTIC_SIZE_REDUCTION := true
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
@@ -141,6 +149,7 @@ jobs:
           FOX_EXCLUDE_AAPT := true
           FOX_EXCLUDE_BASH := true
           FOX_DELETE_MAGISK_ADDON := true
+          TW_EXCLUDE_TZDATA := true
           
           BOARD_RAMDISK_COMPRESSION_ARGS := -9
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
@@ -151,7 +160,7 @@ jobs:
           BOARD_USES_METADATA_ENCRYPTION := true
           EOF
 
-      - name: Build OrangeFox (An Toàn - Ép Kích Thước)
+      - name: Build OrangeFox (An Toàn - Ép Kích Thước Tối Đa)
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           set +e 
@@ -175,12 +184,10 @@ jobs:
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/bootctrl/d' {} +
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/mtk_plpath_utils/d' {} +
           
-          echo "🗜️ KÍCH HOẠT SIÊU NÉN: LỌC FILE .KO VÀ .SO TOÀN HỆ THỐNG..."
+          echo "🗜️ KÍCH HOẠT SIÊU NÉN TOÀN BỘ FILE THƯ VIỆN..."
           STRIP_TOOL=$(find prebuilts/clang/host/ -name llvm-strip | head -n 1)
           if [ -n "$STRIP_TOOL" ]; then
-            echo "Đang nén Kernel Modules..."
             find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec $STRIP_TOOL --strip-unneeded {} \;
-            echo "Đang nén Thư viện System & Vendor (Bỏ qua lỗi nếu có)..."
             find device/xiaomi/duchamp/recovery/root/system/lib64/ -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \; 2>/dev/null || true
             find device/xiaomi/duchamp/recovery/root/vendor/lib64/ -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \; 2>/dev/null || true
           fi
@@ -195,7 +202,7 @@ jobs:
       - name: Upload File Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp-UltraLite
+          name: OrangeFox-duchamp-UltraLite-Fixed
           path: |
             OrangeFox/fox_12.1/out/target/product/duchamp/*.img
             OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
