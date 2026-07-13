@@ -64,7 +64,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: 🔄 Phẫu thuật nâng cấp: Trích xuất Code Zin từ HyperOS
+      - name: 🔄 Phẫu thuật nâng cấp Zin từ HyperOS
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
