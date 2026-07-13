@@ -59,13 +59,13 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/twrp
           
-          # 1. Dọn dẹp module gây lỗi
+          # 1. Dọn dẹp module gây lỗi và rác thư viện
           rm -rf device/xiaomi/duchamp/bootctrl
           rm -rf device/xiaomi/duchamp/mtk_plpath_utils
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*camera*.so
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*sensor*.so
           
-          # 2. Xử lý đồng bộ từ boot gốc
+          # 2. Xử lý đồng bộ từ boot gốc bằng Magiskboot
           wget https://github.com/topjohnwu/Magisk/releases/download/v27.0/Magisk-v27.0.apk -O magisk.zip
           unzip magisk.zip lib/x86_64/libmagiskboot.so
           mv lib/x86_64/libmagiskboot.so magiskboot
@@ -95,7 +95,6 @@ jobs:
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*vpu*.ko
 
           # 4. PHÉP THUẬT ÉP SIZE: Xóa bỏ mã gỡ lỗi (debug symbols) trong file .ko
-          # Việc này sẽ giảm file 14MB ufs-mod xuống chỉ còn vài MB mà vẫn chạy bình thường!
           echo "🗜️ Đang ép nén triệt để các file Kernel Modules (.ko)..."
           find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \;
 
@@ -128,6 +127,9 @@ jobs:
           export NINJA_ARGS="-j1 -l1"
           
           lunch twrp_duchamp-eng
+          
+          echo "🧹 Dọn dẹp rào cản Soong/Vintf gây lỗi build..."
+          rm -rf hardware/interfaces/compatibility_matrices
           
           make -j1 vendorbootimage || {
             echo "❌ THÔNG KÊ CÁC FILE LỚN NHẤT TRƯỚC KHI TRÀN:"
