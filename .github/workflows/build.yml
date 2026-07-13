@@ -64,7 +64,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: 🔄 Phẫu thuật nâng cấp Zin từ HyperOS
+      - name: 🔄 Phẫu thuật nâng cấp Trích xuất Code Zin từ HyperOS
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           
@@ -112,20 +112,37 @@ jobs:
             rm -rf stock_ramdisk vendor_ramdisk.cpio dtb kernel ramdisk.cpio 2>/dev/null || true
           fi
 
-          echo "🧹 XÓA BỎ DRIVER ĐỒ HỌA & CẢM BIẾN THỪA NẶNG NỀ..."
+          echo "🧹 CẠO SẠCH CÁC DRIVER MEDIATEK NẶNG KÝ & KHÔNG CẦN THIẾT..."
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/mitee
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*audio*.ko
+          
+          # Driver Mạng & Kết nối
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wlan*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wifi*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*bt*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*camera*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*bluetooth*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*gps*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*nfc*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*radio*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*modem*.ko
+          
+          # Driver Âm thanh, Camera, Codec Video (Ăn cực nhiều dung lượng)
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*audio*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*snd*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*sound*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*codec*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*vcodec*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*camera*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*cam*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*imgsensor*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*isp*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*vpu*.ko
+          
+          # Driver Cảm biến, Vân tay & Đồ họa nặng
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*sensor*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*vibrator*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*fp*.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*fingerprint*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*goodix*.ko
-          
-          # Đợt quét bổ sung driver đồ họa/nhiệt độ nặng ký
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*mali*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*gpu*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*thermal*.ko
@@ -134,7 +151,7 @@ jobs:
           
           rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
           
-          echo "🛠 Chèn cờ cấu hình OrangeFox siêu nén và loại bỏ múi giờ thừa..."
+          echo "🛠 CHÈN CỜ CẤU HÌNH ORANGEFOX (BẢN ÉP CÂN CẤP ĐỘ HẠT NHÂN)..."
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
           
           # --- CẤU HÌNH TỐI ƯU KÍCH THƯỚC TRIỆT ĐỂ ---
@@ -142,7 +159,13 @@ jobs:
           FOX_MINI_BUILD := true
           FOX_EXCLUDE_THEMES := true
           TW_EXCLUDE_TWRPAPP := true
+          
+          # Loại bỏ hoàn toàn ngôn ngữ khác để xóa font DroidSansFallback
           TW_ONLY_ENGLISH := true
+          TW_EXTRA_LANGUAGES := false
+          TW_NO_LANGUAGE_XML := true
+          
+          # Xóa các tính năng mở rộng ngốn dung lượng
           FOX_ENABLE_APP_MANAGER := false
           FOX_EXCLUDE_NANO_EDITOR := true
           FOX_EXCLUDE_TAR := true
@@ -150,17 +173,24 @@ jobs:
           FOX_EXCLUDE_BASH := true
           FOX_DELETE_MAGISK_ADDON := true
           TW_EXCLUDE_TZDATA := true
+          FOX_EXCLUDE_AROMAFM := true
+          FOX_EXCLUDE_ZIP_BINARY := true
+          FOX_EXCLUDE_NTFS_3G := true
+          TW_EXCLUDE_APEX := true
+          TW_EXCLUDE_PYTHON := true
           
+          # Ép nén ramdisk mức tối đa
           BOARD_RAMDISK_COMPRESSION_ARGS := -9
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
           
+          # Giữ lại các thư viện mã hóa bắt buộc
           TW_INCLUDE_CRYPTO := true
           TW_INCLUDE_CRYPTO_FBE := true
           TW_INCLUDE_FBE_METADATA_DECRYPT := true
           BOARD_USES_METADATA_ENCRYPTION := true
           EOF
 
-      - name: Build OrangeFox (An Toàn - Ép Kích Thước Tối Đa)
+      - name: Build OrangeFox (An Toàn - Chắc chắn qua giới hạn)
         run: |
           cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
           set +e 
@@ -192,7 +222,7 @@ jobs:
             find device/xiaomi/duchamp/recovery/root/vendor/lib64/ -name "*.so" -exec $STRIP_TOOL --strip-unneeded {} \; 2>/dev/null || true
           fi
           
-          echo "🔥 KHỞI CHẠY BIÊN DỊCH BẢN SIÊU NHẸ..."
+          echo "🔥 KHỞI CHẠY BIÊN DỊCH BẢN SIÊU NHẸ (BẢO ĐẢM PASS)..."
           make -j1 vendorbootimage || {
             echo "❌ BUILD THẤT BẠI! THỐNG KÊ CÁC FILE..."
             find out/target/product/duchamp/recovery/root/ -type f -exec du -h {} + | sort -rh | head -n 20
@@ -202,7 +232,7 @@ jobs:
       - name: Upload File Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp-UltraLite-Fixed
+          name: OrangeFox-duchamp-Nuclear-Lite
           path: |
             OrangeFox/fox_12.1/out/target/product/duchamp/*.img
             OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
