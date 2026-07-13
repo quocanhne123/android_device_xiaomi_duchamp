@@ -1,16 +1,10 @@
-name: Build OrangeFox Recovery
+name: Build TWRP Recovery
 
 on:
   workflow_dispatch:
 
 env:
-  TW_THEME: portrait_hdpi
-  TARGET_SCREEN_WIDTH: 1220
-  TARGET_SCREEN_HEIGHT: 2712
-  TW_SKIP_RES_CHECK: true
-  TW_SKIP_THEME_CHECK: true
   ALLOW_MISSING_DEPENDENCIES: true
-  FOX_BUILD_DEVICE: duchamp
   LC_ALL: C
 
 jobs:
@@ -38,51 +32,46 @@ jobs:
           sudo mkswap /swapfile1
           sudo swapon /swapfile1
 
-      - name: Cài đặt môi trường biên dịch
+      - name: Cài đặt môi trường biên dịch TWRP
         run: |
           sudo apt update
-          sudo apt install -y binutils-aarch64-linux-gnu cpio wget unzip
-          git clone https://gitlab.com/OrangeFox/misc/scripts
-          cd scripts
-          sudo bash setup/android_build_env.sh
+          sudo apt install -y binutils-aarch64-linux-gnu cpio wget unzip git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+          mkdir -p ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          sudo ln -sf ~/bin/repo /usr/bin/repo
 
-      - name: Tải Source OrangeFox 12.1
+      - name: Tải Source TWRP Minimal (Gọn nhẹ nhất)
         run: |
-          mkdir -p ${GITHUB_WORKSPACE}/OrangeFox
-          cd ${GITHUB_WORKSPACE}/OrangeFox
-          git clone https://gitlab.com/OrangeFox/sync.git
-          cd sync
-          chmod +x orangefox_sync.sh
-          ./orangefox_sync.sh --branch 12.1 --path ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
-          rm -rf ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1/.repo
+          mkdir -p ${GITHUB_WORKSPACE}/twrp
+          cd ${GITHUB_WORKSPACE}/twrp
+          git config --global user.name "Your Name"
+          git config --global user.email "you@example.com"
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-12.1
+          repo sync -j$(nproc --all) --force-sync
 
       - name: Tải Device Tree
         run: |
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+          cd ${GITHUB_WORKSPACE}/twrp
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: 🔄 Ép Size Triệt Để & Đồng Bộ Hóa HyperOS
+      - name: 🔄 Vắt Kiệt Dung Lượng & Loại Bỏ Rác
         run: |
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+          cd ${GITHUB_WORKSPACE}/twrp
           
-          # 1. THANH TRỪNG TOÀN BỘ FILE `.SO` CŨ KHÔNG CẦN THIẾT (CỨU DUNG LƯỢNG LỚN NHẤT)
-          echo "🧹 Xóa bỏ triệt để thư viện cũ trong recovery/root..."
+          # 1. Dọn dẹp module gây lỗi
+          rm -rf device/xiaomi/duchamp/bootctrl
+          rm -rf device/xiaomi/duchamp/mtk_plpath_utils
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*camera*.so
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*sensor*.so
-          rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*gatekeeper*.so
-          rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*keymint*.so
-          rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*secureclock*.so
-          rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*rkp*.so
-          rm -rf device/xiaomi/duchamp/recovery/root/vendor/firmware/*.csv
           
-          # Tải công cụ giải mã
+          # 2. Xử lý đồng bộ từ boot gốc
           wget https://github.com/topjohnwu/Magisk/releases/download/v27.0/Magisk-v27.0.apk -O magisk.zip
           unzip magisk.zip lib/x86_64/libmagiskboot.so
           mv lib/x86_64/libmagiskboot.so magiskboot
           chmod +x magiskboot
           rm -rf magisk.zip lib
           
-          # 2. TRÍCH XUẤT DRIVER TỪ STOCK VENDOR_BOOT
           if [ -f device/xiaomi/duchamp/stock_vendor_boot.img ]; then
             ./magiskboot unpack device/xiaomi/duchamp/stock_vendor_boot.img
             if [ -f dtb ]; then cp -f dtb device/xiaomi/duchamp/prebuilt/dtb.img; fi
@@ -91,124 +80,54 @@ jobs:
             cpio -id < ../vendor_ramdisk.cpio 2>/dev/null || true
             cd ..
             
-            # Chỉ copy driver (.ko) từ bản gốc
             cp -rf stock_ramdisk/lib/modules/* device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
-            
-            # Đồng bộ file cấu hình phân vùng
-            find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/first_stage_ramdisk/ \; 2>/dev/null || true
-            find stock_ramdisk/ -name "fstab.*" -exec cp -f {} device/xiaomi/duchamp/recovery/root/system/etc/ \; 2>/dev/null || true
-            
-            if [ -d stock_ramdisk/vendor/etc/vintf ]; then
-              rm -rf device/xiaomi/duchamp/recovery/root/vendor/etc/vintf
-              cp -r stock_ramdisk/vendor/etc/vintf device/xiaomi/duchamp/recovery/root/vendor/etc/
-            fi
-            
-            cp -f stock_ramdisk/vendor/ueventd.rc device/xiaomi/duchamp/recovery/root/vendor/ueventd.rc 2>/dev/null || true
-            cp -f stock_ramdisk/ueventd.rc device/xiaomi/duchamp/recovery/root/ueventd.rc 2>/dev/null || true
-            
-            # Chỉ giữ lại các file nhị phân nạp phân vùng thiết yếu
-            mkdir -p device/xiaomi/duchamp/recovery/root/vendor/lib64/hw/
-            mkdir -p device/xiaomi/duchamp/recovery/root/vendor/bin/
-            cp -f stock_ramdisk/vendor/lib64/hw/android.hardware.boot*.so device/xiaomi/duchamp/recovery/root/vendor/lib64/hw/ 2>/dev/null || true
-            cp -f stock_ramdisk/vendor/bin/mtk_plpath_utils device/xiaomi/duchamp/recovery/root/vendor/bin/ 2>/dev/null || true
-            cp -f stock_ramdisk/vendor/lib64/libmtk_plpath_utils.so device/xiaomi/duchamp/recovery/root/vendor/lib64/ 2>/dev/null || true
+            cp -f stock_ramdisk/vendor/etc/vintf/manifest.xml device/xiaomi/duchamp/recovery/root/vendor/etc/vintf/ 2>/dev/null || true
             
             rm -rf stock_ramdisk vendor_ramdisk.cpio dtb kernel ramdisk.cpio
           fi
 
-          # 3. LỌC BỎ MODULE MẠNG/ÂM THANH/CAMERA ĐỂ CHỐNG TRÀN DUNG LƯỢNG
-          echo "✂️ Loại bỏ driver phần cứng dư thừa..."
+          # 3. Lọc bỏ các driver mạng/âm thanh/hình ảnh thừa
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wlan*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wifi*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*bt*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*bluetooth*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*gps*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*audio*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*snd*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*codec*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*camera*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*isp*.ko
           rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*vpu*.ko
-          
-          # Cập nhật danh sách modules.load
-          cd device/xiaomi/duchamp/recovery/root/lib/modules/
-          if [ -f modules.load ]; then
-            mv modules.load modules.load.bak
-            while read -r line; do
-              basename_line=$(basename "$line")
-              if [ -f "$basename_line" ] || [ -f "$line" ]; then
-                echo "$line" >> modules.load
-              fi
-            done < modules.load.bak
-            rm -f modules.load.bak
-          fi
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
 
-          # Xóa bỏ các app daemon nền của Xiaomi làm nặng ramdisk
-          rm -f device/xiaomi/duchamp/recovery/root/vendor/bin/mi_thermald
-          rm -f device/xiaomi/duchamp/recovery/root/vendor/bin/mcd
-          rm -f device/xiaomi/duchamp/recovery/root/system/bin/busybox
+          # 4. PHÉP THUẬT ÉP SIZE: Xóa bỏ mã gỡ lỗi (debug symbols) trong file .ko
+          # Việc này sẽ giảm file 14MB ufs-mod xuống chỉ còn vài MB mà vẫn chạy bình thường!
+          echo "🗜️ Đang ép nén triệt để các file Kernel Modules (.ko)..."
+          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \;
 
-          # 4. THIẾT LẬP BỘ CỜ SIÊU NÉN CHẶT MỨC TỐI ĐA (ULTIMATE SLIM)
+          # 5. Cấu hình biến TWRP ép size
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
-          FOX_DRASTIC_SIZE_REDUCTION := 1
-          FOX_MINI_BUILD := 1
-          FOX_EXCLUDE_THEMES := 1
-          TW_EXCLUDE_TWRPAPP := true
-          FOX_EXCLUDE_FOREIGN_LANGUAGES := 1
-          TW_ONLY_ENGLISH := true
+          TW_EXCLUDE_DEFAULT_USB_INIT := true
           TW_EXTRA_LANGUAGES := false
           TW_NO_LANGUAGE_XML := true
-          FOX_ENABLE_APP_MANAGER := 0
-          FOX_EXCLUDE_NANO_EDITOR := 1
-          FOX_EXCLUDE_TAR := 1
-          FOX_EXCLUDE_AAPT := 1
-          FOX_EXCLUDE_BASH := 1
-          FOX_DELETE_MAGISK_ADDON := 1
-          TW_EXCLUDE_TZDATA := true
-          FOX_EXCLUDE_AROMAFM := 1
-          FOX_EXCLUDE_ZIP_BINARY := 1
-          FOX_EXCLUDE_NTFS_3G := 1
-          TW_EXCLUDE_APEX := true
+          TW_INCLUDE_NTFS_3G := false
           TW_EXCLUDE_PYTHON := true
-          
-          # Cưỡng bức dùng thuật toán LZMA/GZIP nén sâu nhất (-9)
+          TW_EXCLUDE_APEX := true
+          TW_EXCLUDE_TZDATA := true
           BOARD_RAMDISK_COMPRESSION_ARGS := -9
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
           LZMA_RAMDISK_TARGETS := recovery vendor_ramdisk
-          
-          TW_INCLUDE_CRYPTO := true
-          TW_INCLUDE_CRYPTO_FBE := true
-          TW_INCLUDE_FBE_METADATA_DECRYPT := true
-          BOARD_USES_METADATA_ENCRYPTION := true
           EOF
 
-      - name: Khởi chạy Biên Dịch Bản Siêu Nhẹ
+          # Dọn makefile rác
+          find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/android.hardware.boot/d' {} +
+          find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/bootctrl/d' {} +
+          find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/mtk_plpath_utils/d' {} +
+
+      - name: Khởi chạy Biên Dịch TWRP
         run: |
-          cd ${GITHUB_WORKSPACE}/OrangeFox/fox_12.1
+          cd ${GITHUB_WORKSPACE}/twrp
           set +e 
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
-          export FOX_MINI_BUILD=1
           export _JAVA_OPTIONS="-Xmx4g"
           export NINJA_ARGS="-j1 -l1"
           
           lunch twrp_duchamp-eng
-          
-          # Hủy nạp các makefile module cũ bị lỗi thời
-          rm -rf hardware/interfaces/compatibility_matrices
-          rm -rf device/xiaomi/duchamp/bootctrl
-          rm -rf device/xiaomi/duchamp/mtk_plpath_utils
-          find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/android.hardware.boot/d' {} +
-          find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/bootctrl/d' {} +
-          find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/mtk_plpath_utils/d' {} +
-          
-          # Dùng công cụ rút gọn triệt để cấu trúc thư viện còn lại
-          STRIP_TOOL=$(find prebuilts/clang/host/ -name llvm-strip | head -n 1)
-          if [ -n "$STRIP_TOOL" ]; then
-            find device/xiaomi/duchamp/recovery/root/system/lib64/ -name "*.so" -exec $STRIP_TOOL --strip-all {} \; 2>/dev/null || true
-            find device/xiaomi/duchamp/recovery/root/vendor/lib64/ -name "*.so" -exec $STRIP_TOOL --strip-all {} \; 2>/dev/null || true
-          fi
           
           make -j1 vendorbootimage || {
             echo "❌ THÔNG KÊ CÁC FILE LỚN NHẤT TRƯỚC KHI TRÀN:"
@@ -216,10 +135,9 @@ jobs:
             exit 1
           }
 
-      - name: Xuất bản thành phẩm Siêu Tối Ưu
+      - name: Xuất bản thành phẩm TWRP
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-duchamp-UltraSlim-Boot
+          name: TWRP-duchamp-Clean
           path: |
-            OrangeFox/fox_12.1/out/target/product/duchamp/*.img
-            OrangeFox/fox_12.1/out/target/product/duchamp/*.zip
+            twrp/out/target/product/duchamp/vendor_boot.img
