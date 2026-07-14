@@ -55,15 +55,16 @@ jobs:
           cd ${GITHUB_WORKSPACE}/twrp
           git clone -b test https://github.com/quocanhne123/android_device_xiaomi_duchamp.git device/xiaomi/duchamp
 
-      - name: 🔄 Ép Cân Tối Đa & Loại Bỏ Rác Cấp Độ Cao
+      - name: 🔄 [BƯỚC 2] Khóa Thứ Tự Modules Gốc & Ép Cấu Hình LZ4
         run: |
           cd ${GITHUB_WORKSPACE}/twrp
           
-          # Xóa cấu hình nén cũ
+          # Làm sạch các cờ nén cũ để tránh xung đột cấu hình cấu trúc mã nguồn
           sed -i '/BOARD_VENDOR_RAMDISK_COMPRESSION/d' device/xiaomi/duchamp/BoardConfig.mk
           sed -i '/BOARD_RAMDISK_COMPRESSION/d' device/xiaomi/duchamp/BoardConfig.mk
+          sed -i '/BOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD/d' device/xiaomi/duchamp/BoardConfig.mk
 
-          # 1. Đồng bộ module và vendor_ramdisk từ boot gốc
+          # 1. Bung stock_vendor_boot.img để lấy dữ liệu chuẩn từ Xiaomi
           wget https://github.com/topjohnwu/Magisk/releases/download/v27.0/Magisk-v27.0.apk -O magisk.zip
           unzip magisk.zip lib/x86_64/libmagiskboot.so
           mv lib/x86_64/libmagiskboot.so magiskboot
@@ -78,42 +79,40 @@ jobs:
             cpio -id < ../vendor_ramdisk.cpio 2>/dev/null || true
             cd ..
             
+            mkdir -p device/xiaomi/duchamp/recovery/root/lib/modules/
+            
+            # Khôi phục toàn bộ 218/219 modules gốc (Không xóa nhầm DRM/MML/Clock gây màn hình đen)
             cp -rf stock_ramdisk/lib/modules/* device/xiaomi/duchamp/recovery/root/lib/modules/ 2>/dev/null || true
+            
+            # 🔥 QUAN TRỌNG: Ép hệ thống dùng danh sách thứ tự nạp gốc, chặn đứng lỗi nạp lộn xộn
+            cp -f stock_ramdisk/lib/modules/modules.load device/xiaomi/duchamp/recovery/root/lib/modules/modules.load
+            cp -f stock_ramdisk/lib/modules/modules.load device/xiaomi/duchamp/recovery/root/lib/modules/modules.load.recovery
+            
             cp -f stock_ramdisk/vendor/etc/vintf/manifest.xml device/xiaomi/duchamp/recovery/root/vendor/etc/vintf/ 2>/dev/null || true
             
             rm -rf stock_ramdisk vendor_ramdisk.cpio dtb kernel ramdisk.cpio
           fi
 
-          # 2. THANH TRỪNG CÁC FILE NẶNG & DRIVER THỪA
+          # 2. Thanh lý các file rác phi-Kernel (Không ảnh hưởng đến quá trình boot phần cứng)
           rm -rf device/xiaomi/duchamp/bootctrl
           rm -rf device/xiaomi/duchamp/mtk_plpath_utils
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*camera*.so
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*sensor*.so
           
-          # Cắt bỏ các module hệ thống không dùng trong môi trường Recovery
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wlan*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*wifi*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*bt*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*audio*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*camera*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*vpu*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/*pvr*.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/mediatek-drm.ko
-          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/mtk-mml.ko
+          # Xóa file TEE không thiết yếu chiếm dung lượng khổng lồ (12MB)
+          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/a734eed9-d6a1-4244-aa507c99719e7b7f.ta
 
-          # 🚨 SIÊU CẮT GIẢM: Tự động xóa MỌI file bảo mật (.ta) nặng trên 1MB
-          echo "🧹 Đang dọn dẹp các file MiTEE khổng lồ..."
-          find device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/ -type f -size +1024k -exec rm -f {} \;
+          # 3. Ép giảm dung lượng an toàn (Chỉ loại bỏ log debug, giữ nguyên lõi driver)
+          echo "🗜️ Đang chạy lệnh giải phóng dung lượng ảo cho Kernel Modules..."
+          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \;
 
-          # 3. ÉP SIZE TUYỆT ĐỐI (Dùng strip-unneeded mạnh hơn strip-debug)
-          echo "🗜️ Đang ép nén cực độ các file System/Vendor (.ko và .so)..."
-          find device/xiaomi/duchamp/recovery/root/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-unneeded {} \;
-          find device/xiaomi/duchamp/recovery/root/ -name "*.so" -exec aarch64-linux-gnu-strip --strip-unneeded {} \;
-
-          # 4. BUỘC ANDROID NÉN LZMA/LZ4 MỨC ĐỘ 9 VÀ TẮT ĐỒ CHƠI TWRP
+          # 4. Bơm cấu hình chuẩn vào BoardConfig.mk (Bắt buộc dùng LZ4 cho LK và khóa danh sách load)
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
+          BOARD_VENDOR_RAMDISK_COMPRESSION := lz4
           BOARD_VENDOR_RAMDISK_COMPRESSION_ARGS := -9
-          LZMA_RAMDISK_TARGETS := recovery vendor_ramdisk
+          BOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD := device/xiaomi/duchamp/recovery/root/lib/modules/modules.load
+          TARGET_RECOVERY_MODULES_LOAD := device/xiaomi/duchamp/recovery/root/lib/modules/modules.load.recovery
+          
           TW_EXCLUDE_DEFAULT_USB_INIT := true
           TW_EXTRA_LANGUAGES := false
           TW_NO_LANGUAGE_XML := true
@@ -126,7 +125,7 @@ jobs:
           TW_EXCLUDE_TWRPAPP := true
           EOF
 
-          # Dọn makefile rác chứa module cũ
+          # Gỡ bỏ các liên kết HAL cũ trong makefile
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/android.hardware.boot/d' {} +
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/bootctrl/d' {} +
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/mtk_plpath_utils/d' {} +
@@ -154,6 +153,6 @@ jobs:
       - name: Xuất bản thành phẩm TWRP
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-duchamp-Ultra-Optimized
+          name: TWRP-duchamp-AntiBootloop
           path: |
             twrp/out/target/product/duchamp/vendor_boot.img
