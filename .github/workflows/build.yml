@@ -100,16 +100,25 @@ jobs:
             rm -rf stock_ramdisk stock_extracted
           fi
 
-          # 2. Thanh lý các file rác lớn phi-phần cứng
+          # 2. 🔥 THANH TRỪNG CÁC FILE NẶNG ĐÃ XÁC ĐỊNH TRONG LOG TRÀN Dung Lượng
+          # Xóa triệt để các module đồ họa/đa phương tiện nặng không cần cho TWRP
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/mediatek-drm.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/mtk-mml.ko
+          rm -f device/xiaomi/duchamp/recovery/root/lib/modules/mdp_drv_*.ko
+
+          # Gỡ bỏ linh kiện rác phi phần cứng khác
           rm -rf device/xiaomi/duchamp/bootctrl
           rm -rf device/xiaomi/duchamp/mtk_plpath_utils
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*camera*.so
           rm -rf device/xiaomi/duchamp/recovery/root/vendor/lib64/*sensor*.so
-          rm -f device/xiaomi/duchamp/recovery/root/vendor/mitee/ta/a734eed9-d6a1-4244-aa507c99719e7b7f.ta
+          
+          # Quét sạch tất cả các file mã hóa bảo mật .ta lớn hơn 500KB trong toàn bộ tree
+          find device/xiaomi/duchamp/ -type f -name "*.ta" -size +500k -delete
 
-          # 3. Tối ưu dung lượng ảo (Chỉ loại bỏ debug symbols, giữ nguyên mã thực thi driver)
-          echo "🗜️ Ép cân các file driver (.ko)..."
-          find device/xiaomi/duchamp/recovery/root/lib/modules/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-debug {} \;
+          # 3. 🗜️ ÉP CÂN TUYỆT ĐỐI (Dùng strip-unneeded mạnh hơn để vắt kiệt byte dư thừa)
+          echo "🗜️ Đang lột bỏ biểu đồ debug ẩn trong driver (.ko) và thư viện (.so)..."
+          find device/xiaomi/duchamp/recovery/root/ -name "*.ko" -exec aarch64-linux-gnu-strip --strip-unneeded {} \;
+          find device/xiaomi/duchamp/recovery/root/ -name "*.so" -exec aarch64-linux-gnu-strip --strip-unneeded {} \; 2>/dev/null || true
 
           # 4. Thiết lập cấu hình LZ4 nén sâu kịch kim kèm khóa danh sách modules
           cat << 'EOF' >> device/xiaomi/duchamp/BoardConfig.mk
@@ -118,6 +127,7 @@ jobs:
           BOARD_VENDOR_RAMDISK_KERNEL_MODULES_LOAD := device/xiaomi/duchamp/recovery/root/lib/modules/modules.load
           TARGET_RECOVERY_MODULES_LOAD := device/xiaomi/duchamp/recovery/root/lib/modules/modules.load.recovery
           
+          BOARD_RECOVERY_SMALL_BIN := true
           TW_EXCLUDE_DEFAULT_USB_INIT := true
           TW_EXTRA_LANGUAGES := false
           TW_NO_LANGUAGE_XML := true
@@ -130,7 +140,7 @@ jobs:
           TW_EXCLUDE_TWRPAPP := true
           EOF
 
-          # Dọn dẹp liên kết rác lỗi thời
+          # Dọn dẹp liên kết rác lỗi thời trong các file chỉ định biên dịch
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/android.hardware.boot/d' {} +
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/bootctrl/d' {} +
           find device/xiaomi/duchamp/ -name "*.mk" -exec sed -i '/mtk_plpath_utils/d' {} +
@@ -158,6 +168,6 @@ jobs:
       - name: Xuất bản thành phẩm TWRP
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-duchamp-Fixed
+          name: TWRP-duchamp-Completely-Fixed
           path: |
             twrp/out/target/product/duchamp/vendor_boot.img
